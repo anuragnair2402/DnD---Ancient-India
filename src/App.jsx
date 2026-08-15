@@ -310,7 +310,12 @@ ${rooms['Front Foyer'].description}`;
           // Riddle solved!
           audio.playItemAcquired();
           const targetRoomName = activeRiddleGate.split('->')[1];
-          const newUnlocked = { ...unlockedGates, [activeRiddleGate]: true };
+          const reverseGateKey = `${targetRoomName}->${gameState.currentRoom}`;
+          const newUnlocked = { 
+            ...unlockedGates, 
+            [activeRiddleGate]: true,
+            [reverseGateKey]: true
+          };
           setUnlockedGates(newUnlocked);
           setActiveRiddleGate(null);
 

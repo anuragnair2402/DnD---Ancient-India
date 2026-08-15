@@ -192,4 +192,98 @@ describe('Mansion Escape Gameplay Engine', () => {
       expect(res.storyText).toContain('STAR OF MEWAR');
     });
   });
+
+  describe('Bidirectional Gate Navigation & General Interactive Commands', () => {
+    it('allows return travel without re-asking riddle once unlocked in either direction', () => {
+      const unlocked = { 'Front Foyer->Chowk Courtyard': true };
+      const chowkState = {
+        currentRoom: 'Chowk Courtyard',
+        inventory: ['Matches'],
+        playerClass: 'Mercenary',
+        stats: { sanity: 100 }
+      };
+
+      const res = executeLocalCommand(chowkState, 'go south', unlocked);
+      expect(res.requiresRiddle).toBeFalsy();
+      expect(res.stateUpdates.currentRoom).toBe('Front Foyer');
+    });
+
+    it('reads the Antiquarian Old Journal with accurate lore clues', () => {
+      const stateWithJournal = {
+        currentRoom: 'Chowk Courtyard',
+        inventory: ['Old Journal', 'Matches'],
+        playerClass: 'Antiquarian',
+        stats: { sanity: 100 }
+      };
+
+      const res = executeLocalCommand(stateWithJournal, 'read journal');
+      expect(res.storyText).toContain('Bronze Key');
+      expect(res.storyText).toContain('Silver Key');
+      expect(res.storyText).toContain('Gold Key');
+      expect(res.storyText).toContain('Star of Mewar');
+    });
+
+    it('reads the Thakur portrait inscription plaque in the Foyer', () => {
+      const foyerState = {
+        currentRoom: 'Front Foyer',
+        inventory: [],
+        playerClass: 'Antiquarian',
+        stats: { sanity: 100 }
+      };
+
+      const res = executeLocalCommand(foyerState, 'read plaque');
+      expect(res.storyText).toContain('Only the worthy who solve the trials');
+    });
+
+    it('strikes matches to illuminate the room', () => {
+      const matchState = {
+        currentRoom: 'Zenana Wing',
+        inventory: ['Matches'],
+        playerClass: 'Antiquarian',
+        stats: { sanity: 100 }
+      };
+
+      const res = executeLocalCommand(matchState, 'light match');
+      expect(res.storyText).toContain('bright flare illuminates');
+    });
+
+    it('checks oil lantern reserves', () => {
+      const state = {
+        currentRoom: 'Front Foyer',
+        inventory: [],
+        oilReserve: 86,
+        playerClass: 'Mercenary',
+        stats: { sanity: 100 }
+      };
+
+      const res = executeLocalCommand(state, 'check oil');
+      expect(res.storyText).toContain('86%');
+    });
+
+    it('checks explorer status and stats', () => {
+      const state = {
+        currentRoom: 'Front Foyer',
+        inventory: [],
+        playerClass: 'Exorcist (Tantrik)',
+        stats: { sanity: 95, resolve: 8, perception: 9, courage: 15 }
+      };
+
+      const res = executeLocalCommand(state, 'status');
+      expect(res.storyText).toContain('Exorcist (Tantrik)');
+      expect(res.storyText).toContain('Sanity: 95%');
+    });
+
+    it('allows dropping items to manage inventory slots', () => {
+      const state = {
+        currentRoom: 'Front Foyer',
+        inventory: ['Matches', 'Old Journal'],
+        playerClass: 'Antiquarian',
+        stats: { sanity: 100 }
+      };
+
+      const res = executeLocalCommand(state, 'drop Matches');
+      expect(res.stateUpdates.removeInventory).toBe('Matches');
+      expect(res.storyText).toContain('dropped Matches');
+    });
+  });
 });

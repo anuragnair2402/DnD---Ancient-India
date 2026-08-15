@@ -117,7 +117,6 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
   const normalizedCommand = command.trim().toLowerCase();
   const room = rooms[state.currentRoom];
 
-  // Helper function for flexible keyword matching
   const match = (keywords) => {
     return keywords.every(kw => normalizedCommand.includes(kw));
   };
@@ -170,7 +169,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     };
   }
 
-  // 2. Fallback check for look/l
+  // 2. Utility & General Commands (look, stats, inventory, matches, journal)
   if (normalizedCommand === "look" || normalizedCommand === "l") {
     return {
       location: state.currentRoom,
@@ -180,13 +179,75 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     };
   }
 
+  if (match(["read", "journal"]) || match(["examine", "journal"]) || match(["look", "journal"])) {
+    if (state.inventory.includes("Old Journal")) {
+      return {
+        location: state.currentRoom,
+        storyText: "You open the leather-bound journal. Hand-drawn diagrams note:\n• Bronze Key: Hidden in the Front Foyer drawer.\n• Silver Key: Locked inside the heavy Zenana trunk.\n• Gold Key: Guarded by the Yaksha spirit in the Stepwell Baoli (use Sacred Ash from the kitchen to dispel it).\n• Star of Mewar: Sealed behind the Mahogany Gate in Sheesh Mahal.",
+        objective: state.objective,
+        stateUpdates: {}
+      };
+    }
+  }
+
+  if (match(["light", "match"]) || match(["strike", "match"]) || match(["use", "match"])) {
+    if (state.inventory.includes("Matches")) {
+      return {
+        location: state.currentRoom,
+        storyText: "You strike a match. The bright flare illuminates the cold carvings of the haveli, casting stark dancing shadows before flickering out in the chill breeze.",
+        objective: state.objective,
+        stateUpdates: {}
+      };
+    }
+  }
+
+  if (match(["check", "oil"]) || match(["examine", "lantern"]) || match(["look", "lantern"])) {
+    return {
+      location: state.currentRoom,
+      storyText: `Your brass lantern hums with a steady glow. Oil reserve is at ${state.oilReserve !== undefined ? state.oilReserve : 100}%. Keep moving before it fades.`,
+      objective: state.objective,
+      stateUpdates: {}
+    };
+  }
+
+  if (match(["stats"]) || match(["status"]) || match(["score"])) {
+    const st = state.stats || {};
+    return {
+      location: state.currentRoom,
+      storyText: `=== EXPLORER STATS ===\nClass: ${state.playerClass || 'Adventurer'}\nSanity: ${st.sanity || 100}%\nResolve: ${st.resolve || 10}\nPerception: ${st.perception || 10}\nCourage: ${st.courage || 10}`,
+      objective: state.objective,
+      stateUpdates: {}
+    };
+  }
+
+  // Handle dropping items
+  if (normalizedCommand.startsWith("drop ")) {
+    const itemToDrop = command.replace(/^drop\s+/i, '').trim();
+    const matched = state.inventory.find(i => i.toLowerCase() === itemToDrop.toLowerCase());
+    if (matched) {
+      return {
+        location: state.currentRoom,
+        storyText: `You dropped ${matched} onto the stone floor.`,
+        objective: state.objective,
+        stateUpdates: { removeInventory: matched }
+      };
+    } else {
+      return {
+        location: state.currentRoom,
+        storyText: `You do not have '${itemToDrop}' in your inventory.`,
+        objective: state.objective,
+        stateUpdates: {}
+      };
+    }
+  }
+
   // 3. Room specific keyword routing
   let storyText = "";
   let stateUpdates = {};
   let objective = state.objective;
 
   if (state.currentRoom === "Front Foyer") {
-    if (match(["open", "drawer"]) || match(["pull", "drawer"]) || match(["search", "drawer"])) {
+    if (match(["open", "drawer"]) || match(["pull", "drawer"]) || match(["search", "drawer"]) || match(["look", "drawer"])) {
       if (state.inventory.includes("Bronze Key")) {
         storyText = "The drawer is already open and empty. You have the Bronze Key in your inventory.";
       } else {
@@ -194,7 +255,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
         stateUpdates = { addInventory: "Bronze Key", setKeyCollected: "bronze" };
         objective = "Pass through the Chowk and find the Silver and Gold Keys.";
       }
-    } else if (match(["examine", "portrait"]) || match(["look", "portrait"]) || match(["examine", "painting"]) || match(["look", "painting"])) {
+    } else if (match(["read", "plaque"]) || match(["read", "inscription"]) || match(["examine", "portrait"]) || match(["look", "portrait"]) || match(["examine", "painting"]) || match(["look", "painting"])) {
       storyText = "The portrait depicts Thakur Vikram Singh holding the glowing Star of Mewar diamond. His cold eyes seem to track your movements. An inscription reads: 'Only the worthy who solve the trials of the haveli shall leave with their breath.'";
     } else if (match(["take", "portrait"]) || match(["get", "portrait"]) || match(["pull", "portrait"])) {
       storyText = "You pull at the frame. It is bolted solid. The painted Thakur scowls in fury, and an icy chill stabs through your heart. (Sanity -5)";
@@ -263,7 +324,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     if (match(["examine", "saber"]) || match(["look", "saber"]) || match(["examine", "sword"]) || match(["look", "sword"])) {
       storyText = "Ancient Rajput talwars line the walls. Touching the rusted pommel sends a spectral clash of battle screaming through your thoughts. (Sanity -5)";
       stateUpdates = { sanityChange: -5 };
-    } else if (match(["open", "desk"]) || match(["examine", "desk"]) || match(["search", "desk"])) {
+    } else if (match(["read", "scroll"]) || match(["read", "letter"]) || match(["open", "desk"]) || match(["examine", "desk"]) || match(["search", "desk"])) {
       storyText = "You search the teak writing desk. Inside is a scroll from the court priest: 'The Yaksha in the Baoli is vulnerable only to the Sacred Ash stored in the subterranean Rasoda pantry.'";
     }
   }
