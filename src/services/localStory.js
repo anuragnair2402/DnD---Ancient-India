@@ -123,8 +123,10 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
   };
 
   // 1. Check movement command
-  if (room.exits[normalizedCommand]) {
-    const nextRoomName = room.exits[normalizedCommand];
+  const cleanMovement = normalizedCommand.replace(/^go\s+/i, '').trim();
+  const nextRoomName = room.exits[normalizedCommand] || room.exits[cleanMovement];
+
+  if (nextRoomName) {
     const gateKey = `${state.currentRoom}->${nextRoomName}`;
     const reverseGateKey = `${nextRoomName}->${state.currentRoom}`;
 
