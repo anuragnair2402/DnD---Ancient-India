@@ -4,13 +4,24 @@ import HelpModal from './components/HelpModal';
 import CharacterCreator from './components/CharacterCreator';
 import MansionMap from './components/MansionMap';
 import { executeLocalCommand, rooms } from './services/localStory';
-import { generateStoryResponse } from './services/ai';
-import { Volume2, VolumeX, ShieldAlert, RotateCcw, Key } from 'lucide-react';
+import { 
+  generateStoryResponse, 
+  initWebLLMEngine, 
+  isWebGPUSupported, 
+  isWebLLMReady, 
+  DEFAULT_LOCAL_MODEL 
+} from './services/ai';
+import { Volume2, VolumeX, ShieldAlert, Key, Cpu, Sparkles, Database } from 'lucide-react';
 
 export default function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
-  const [playMode, setPlayMode] = useState('menu'); // 'menu' | 'creator' | 'playing' | 'gameover' | 'victory'
+  const [aiMode, setAiMode] = useState(localStorage.getItem('mansion_ai_mode') || (isWebGPUSupported() ? 'webllm' : 'offline'));
+  const [playMode, setPlayMode] = useState('menu'); // 'menu' | 'loading_model' | 'creator' | 'playing' | 'gameover' | 'victory'
   
+  // WebLLM Model loading state
+  const [modelProgress, setModelProgress] = useState({ progress: 0, text: 'Initializing neural core...' });
+  const [modelError, setModelError] = useState('');
+
   // Player State
   const [player, setPlayer] = useState({
     name: '',
@@ -103,11 +114,55 @@ export default function App() {
     }
   }, [player.stats.sanity, gameState.turn, playMode]);
 
+  // Save AI mode
+  const handleSelectAiMode = (mode) => {
+    setAiMode(mode);
+    localStorage.setItem('mansion_ai_mode', mode);
+    audio.playBleep(520, 0.05);
+  };
+
   // Save API key
   const handleSaveApiKey = (key) => {
     setApiKey(key);
     localStorage.setItem('gemini_api_key', key);
     audio.playBleep(660, 0.08);
+  };
+
+  // Start adventure handler (triggers WebLLM preload if selected)
+  const handleProceedToCharacterCreation = async () => {
+    setModelError('');
+    if (aiMode === 'webllm' && !isWebLLMReady()) {
+      if (!isWebGPUSupported()) {
+        setModelError("WebGPU is not supported on this browser. Falling back to offline mode.");
+        setAiMode('offline');
+        localStorage.setItem('mansion_ai_mode', 'offline');
+        setPlayMode('creator');
+        return;
+      }
+
+      setPlayMode('loading_model');
+      try {
+        await initWebLLMEngine(DEFAULT_LOCAL_MODEL, (report) => {
+          const pct = Math.round((report.progress || 0) * 100);
+          setModelProgress({
+            progress: pct,
+            text: report.text || 'Downloading and caching neural weights...'
+          });
+        });
+        setPlayMode('creator');
+        audio.playItemAcquired();
+      } catch (err) {
+        console.error("WebLLM boot error:", err);
+        setModelError(err.message || 'Failed to initialize in-browser AI. Switching to classic offline mode.');
+        setAiMode('offline');
+        setTimeout(() => {
+          setPlayMode('creator');
+        }, 1800);
+      }
+    } else {
+      setPlayMode('creator');
+      audio.playBleep(660, 0.08);
+    }
   };
 
   const handleStartGame = (creatorData) => {
@@ -119,7 +174,12 @@ export default function App() {
     });
     
     // Seed initial console output
-    const initialText = `Mansion Escape - Version 1.0 (Traditional 1980s text engine)
+    const aiBanner = aiMode === 'webllm' 
+      ? '[AI Core: Qwen 2.5 Local WebGPU (In-Browser)]'
+      : (aiMode === 'gemini' && apiKey ? '[AI Core: Gemini Cloud]' : '[AI Core: Offline Rule Engine]');
+
+    const initialText = `Mansion Escape - Version 2.0 (Web Interactive Fiction)
+${aiBanner}
 ------------------------------------------------------------------
 You slip through a high, broken stone Jharokha window, dropping onto the dusty floorboards. Behind you, the massive iron-studded foyer gates slam shut with an echo that shakes the cobwebs. The brass lock snaps shut with a cold click. You are trapped.
 
@@ -138,72 +198,6 @@ ${rooms['Front Foyer'].description}`;
     setKeysCollected({ bronze: false, silver: false, gold: false });
     setPlayMode('playing');
     audio.playCreak();
-  };
-
-  // Map layout room coordinates
-  const MAP_ROOMS = {
-    "Stepwell Baoli": { label: "Baoli (Well)", x: 80, y: 15, width: 95, height: 35, level: 'main' },
-    "Sheesh Mahal": { label: "Sheesh Mahal", x: 195, y: 15, width: 95, height: 35, level: 'main' },
-    "Zenana Wing": { label: "Zenana Wing", x: 10, y: 65, width: 90, height: 45, level: 'main' },
-    "Chowk Courtyard": { label: "Chowk (Courtyard)", x: 110, y: 65, width: 100, height: 45, level: 'main' },
-    "Mardana Wing": { label: "Mardana Wing", x: 220, y: 65, width: 90, height: 45, level: 'main' },
-    "Front Foyer": { label: "Front Foyer", x: 110, y: 125, width: 100, height: 35, level: 'main' },
-    "Rasoda Kitchen": { label: "Rasoda (Kitchen)", x: 110, y: 200, width: 100, height: 35, level: 'lower' }
-  };
-
-  const MAP_CONNECTIONS = [
-    { from: "Front Foyer", to: "Chowk Courtyard", x1: 160, y1: 125, x2: 160, y2: 110, type: 'normal' },
-    { from: "Chowk Courtyard", to: "Zenana Wing", x1: 110, y1: 87, x2: 100, y2: 87, type: 'normal' },
-    { from: "Chowk Courtyard", to: "Mardana Wing", x1: 210, y1: 87, x2: 220, y2: 87, type: 'normal' },
-    { from: "Chowk Courtyard", to: "Stepwell Baoli", x1: 160, y1: 65, x2: 127, y2: 50, type: 'normal' },
-    { from: "Mardana Wing", to: "Sheesh Mahal", x1: 265, y1: 65, x2: 242, y2: 50, type: 'normal' },
-    { from: "Chowk Courtyard", to: "Rasoda Kitchen", x1: 160, y1: 110, x2: 160, y2: 200, type: 'vertical' }
-  ];
-
-  const getAdjacentRooms = (roomName) => {
-    const adjMap = {
-      "Front Foyer": ["Chowk Courtyard"],
-      "Chowk Courtyard": ["Front Foyer", "Zenana Wing", "Mardana Wing", "Stepwell Baoli", "Rasoda Kitchen"],
-      "Zenana Wing": ["Chowk Courtyard"],
-      "Mardana Wing": ["Chowk Courtyard", "Sheesh Mahal"],
-      "Stepwell Baoli": ["Chowk Courtyard"],
-      "Rasoda Kitchen": ["Chowk Courtyard"],
-      "Sheesh Mahal": ["Mardana Wing"]
-    };
-    return adjMap[roomName] || [];
-  };
-
-  const getMovementDirection = (fromRoom, toRoom) => {
-    const directionMap = {
-      "Front Foyer": { "Chowk Courtyard": "north" },
-      "Chowk Courtyard": {
-        "Front Foyer": "south",
-        "Zenana Wing": "west",
-        "Mardana Wing": "east",
-        "Stepwell Baoli": "north",
-        "Rasoda Kitchen": "down"
-      },
-      "Zenana Wing": { "Chowk Courtyard": "east" },
-      "Mardana Wing": {
-        "Chowk Courtyard": "west",
-        "Sheesh Mahal": "north"
-      },
-      "Stepwell Baoli": { "Chowk Courtyard": "south" },
-      "Rasoda Kitchen": { "Chowk Courtyard": "up" },
-      "Sheesh Mahal": { "Mardana Wing": "south" }
-    };
-    return directionMap[fromRoom]?.[toRoom] || null;
-  };
-
-  const handleRoomClick = (roomName) => {
-    if (playMode !== 'playing' || isGenerating) return;
-    const currentRoom = gameState.currentRoom;
-    const direction = getMovementDirection(currentRoom, roomName);
-    if (direction) {
-      handleCommandSubmit(null, direction);
-    } else {
-      audio.playBleep(220, 0.1);
-    }
   };
 
   const handleCommandSubmit = async (e, commandOverride) => {
@@ -269,13 +263,11 @@ ${rooms['Front Foyer'].description}`;
       return;
     }
 
-    // 3. Process game movements or actions
-    // Determine if it's a movement command resolved locally
+    // 3. Process fast local movements
     const currentRoomData = rooms[gameState.currentRoom];
     const isMovement = currentRoomData.exits[norm] !== undefined;
 
     if (isMovement) {
-      // Execute local movement to save tokens and ensure prompt responsiveness
       const localResult = executeLocalCommand(
         { 
           currentRoom: gameState.currentRoom, 
@@ -287,10 +279,8 @@ ${rooms['Front Foyer'].description}`;
         cmd
       );
 
-      // Play structural creak sound
       audio.playCreak();
 
-      // Update State
       setGameState(prev => ({
         ...prev,
         currentRoom: localResult.stateUpdates.currentRoom,
@@ -301,18 +291,19 @@ ${rooms['Front Foyer'].description}`;
       return;
     }
 
-    // AI constraint handling: only commands starting with < examine or <examine trigger Gemini AI
-    const isAiCommand = norm.startsWith('< examine') || norm.startsWith('<examine');
+    // AI narrative commands: triggered via '< examine' or when local AI is active for examine/riddles
+    const isAiExplicitCommand = norm.startsWith('< examine') || norm.startsWith('<examine');
+    const shouldUseAi = isAiExplicitCommand || (aiMode === 'webllm' && norm.startsWith('examine'));
 
     setIsGenerating(true);
 
     try {
       let result;
-      if (isAiCommand) {
-        if (apiKey) {
-          // Clean the prefix "<" or "< " before calling the AI service
-          const cleanCmd = cmd.replace(/^<\s*/, '');
-          result = await generateStoryResponse(apiKey, {
+      if (shouldUseAi && (aiMode === 'webllm' || (aiMode === 'gemini' && apiKey))) {
+        const cleanCmd = cmd.replace(/^<\s*/, '');
+        result = await generateStoryResponse(
+          { mode: aiMode, apiKey },
+          {
             currentRoom: gameState.currentRoom,
             stats: player.stats,
             inventory: player.inventory,
@@ -320,16 +311,11 @@ ${rooms['Front Foyer'].description}`;
             keysCollected,
             turn: gameState.turn,
             objective: gameState.objective
-          }, cleanCmd);
-        } else {
-          result = {
-            storyText: "[AI Mode API Key is required for '< examine' commands. Please enter it in the Main Menu.]",
-            objective: gameState.objective,
-            stateUpdates: {}
-          };
-        }
+          },
+          cleanCmd
+        );
       } else {
-        // Fallback local branching response for all other commands
+        // Fallback local branching response
         result = executeLocalCommand({
           currentRoom: gameState.currentRoom,
           inventory: player.inventory,
@@ -369,7 +355,6 @@ ${rooms['Front Foyer'].description}`;
             inventory: [...prev.inventory, toAdd]
           }));
         } else if (player.inventory.length >= 6) {
-          // Send inventory full feedback
           result.storyText += "\n(Your inventory slots are full. You must drop something first.)";
         }
       }
@@ -412,7 +397,7 @@ ${rooms['Front Foyer'].description}`;
       }));
 
     } catch (err) {
-      // Fallback in case of API failure
+      console.warn("AI narrative failed, falling back:", err);
       const fallbackResult = executeLocalCommand({
         currentRoom: gameState.currentRoom,
         inventory: player.inventory,
@@ -423,7 +408,7 @@ ${rooms['Front Foyer'].description}`;
 
       setGameState(prev => ({
         ...prev,
-        log: [...prev.log, { type: 'narrative', text: `[API Error. Switched to offline narrative parser.]\n\n${fallbackResult.storyText}` }]
+        log: [...prev.log, { type: 'narrative', text: `[Switched to local parser]\n\n${fallbackResult.storyText}` }]
       }));
     } finally {
       setIsGenerating(false);
@@ -485,7 +470,7 @@ ${rooms['Front Foyer'].description}`;
                   
                   {isGenerating && (
                     <div className="terminal-line typewriter-text dim-text">
-                      Thinking
+                      Thinking...
                     </div>
                   )}
                 </div>
@@ -500,7 +485,7 @@ ${rooms['Front Foyer'].description}`;
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     disabled={isGenerating}
-                    placeholder="Type command here..."
+                    placeholder="Type command here (e.g. look, go north, take key)..."
                     autoComplete="off"
                     autoFocus
                   />
@@ -513,7 +498,7 @@ ${rooms['Front Foyer'].description}`;
                 <div className="map-panel">
                   <div className="panel-title">
                     <span>Mansion Floor Plan</span>
-                    <span style={{ fontSize: '9px', color: 'var(--terminal-dim)' }}>▶ = current location</span>
+                    <span style={{ fontSize: '9px', color: 'var(--terminal-dim)' }}>▶ = location</span>
                   </div>
                   
                   <div className="map-canvas-container">
@@ -525,6 +510,9 @@ ${rooms['Front Foyer'].description}`;
                 <div className="help-panel" style={{ flex: 1, overflowY: 'auto' }}>
                   <div className="panel-title">
                     <span>Command Reference</span>
+                    <span style={{ fontSize: '9px', color: 'var(--terminal-amber)' }}>
+                      {aiMode === 'webllm' ? '● WebLLM Local' : (aiMode === 'gemini' ? '● Gemini Cloud' : '○ Offline')}
+                    </span>
                   </div>
                   <div className="sidebar-help-list">
                     <h3>Movement</h3>
@@ -534,10 +522,8 @@ ${rooms['Front Foyer'].description}`;
                     <h3>Interaction</h3>
                     <p>• <strong>take [item]</strong> / <strong>drop [item]</strong></p>
                     <p>• <strong>open [door/trunk/cabinet]</strong></p>
+                    <p>• <strong>examine [object]</strong></p>
                     <p>• <strong>use [item]</strong></p>
-                    
-                    <h3>Immersive AI Lore</h3>
-                    <p>• <strong>&lt; examine [object]</strong> (Gemini Powered)</p>
                     
                     <h3>System</h3>
                     <p>• <strong>look</strong> / <strong>inventory</strong> / <strong>restart</strong></p>
@@ -547,38 +533,175 @@ ${rooms['Front Foyer'].description}`;
             </div>
           )}
 
+          {/* Model Loading Screen */}
+          {playMode === 'loading_model' && (
+            <div className="api-container">
+              <Cpu size={48} className="glow-text" style={{ marginBottom: '16px' }} />
+              <h2 className="creator-title glow-text" style={{ fontSize: '24px', marginBottom: '16px' }}>
+                BOOTING IN-BROWSER AI CORE
+              </h2>
+              <p style={{ maxWidth: '540px', margin: '0 auto 20px', fontSize: '16px', color: 'var(--terminal-dim)' }}>
+                Downloading Qwen 2.5 into browser WebGPU cache. This happens once; future sessions load instantly from local memory.
+              </p>
+
+              <div style={{ width: '100%', maxWidth: '480px', margin: '20px auto' }}>
+                <div style={{
+                  width: '100%',
+                  height: '24px',
+                  border: '2px solid var(--terminal-amber)',
+                  backgroundColor: 'var(--bg-panel)',
+                  padding: '2px',
+                  position: 'relative'
+                }}>
+                  <div style={{
+                    width: `${modelProgress.progress}%`,
+                    height: '100%',
+                    backgroundColor: 'var(--terminal-amber)',
+                    transition: 'width 0.2s ease'
+                  }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '14px' }}>
+                  <span className="dim-text">{modelProgress.text}</span>
+                  <span className="glow-text">{modelProgress.progress}%</span>
+                </div>
+              </div>
+
+              {modelError && (
+                <p className="red-glow-text" style={{ fontSize: '15px', marginTop: '16px' }}>
+                  {modelError}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Title / Main Menu */}
           {playMode === 'menu' && (
             <div className="api-container">
-              <h1 className="creator-title glow-text" style={{ fontSize: '36px', marginBottom: '24px' }}>
+              <h1 className="creator-title glow-text" style={{ fontSize: '36px', marginBottom: '16px' }}>
                 MANSION ESCAPE
               </h1>
-              <p style={{ maxWidth: '600px', margin: '0 auto 24px', lineHeight: '1.4' }}>
-                An interactive horror text adventure set in a cursed Rajasthani-style mansion. Type traditional Zork commands to explore, collect items, and escape.
+              <p style={{ maxWidth: '620px', margin: '0 auto 24px', lineHeight: '1.4' }}>
+                A retro horror interactive text adventure set in a cursed 19th-century Rajasthani Haveli. Solve class-based puzzles, manage sanity, and escape before the midnight hour.
               </p>
 
-              <div style={{ width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <label style={{ fontSize: '15px' }}>&gt; GEMINI API KEY (optional, for &lt; examine commands):</label>
-                <input
-                  type="password"
-                  className="api-input"
-                  value={apiKey}
-                  onChange={(e) => handleSaveApiKey(e.target.value)}
-                  placeholder="Paste your Gemini API key here..."
-                />
-                <span style={{ fontSize: '13px', color: 'var(--terminal-dim)' }}>
-                  {apiKey
-                    ? '✓ API Key set — use "&lt; examine [object]" in-game for immersive AI lore.'
-                    : 'Without a key, game runs in classic offline mode. "&lt; examine" will be unavailable.'}
-                </span>
-              </div>
+              {/* AI Engine Selection Box */}
+              <div style={{ 
+                width: '100%', 
+                maxWidth: '560px', 
+                border: '1px solid var(--terminal-dim)', 
+                borderRadius: '6px', 
+                padding: '16px', 
+                background: 'var(--bg-panel)',
+                marginBottom: '24px',
+                textAlign: 'left'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--terminal-amber)', fontFamily: 'var(--font-pixel)', fontSize: '11px' }}>
+                  <Cpu size={14} /> SELECT AI NARRATIVE ENGINE
+                </div>
 
-              <div style={{ margin: '24px 0 32px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* WebLLM Option */}
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    cursor: 'pointer',
+                    padding: '8px',
+                    border: aiMode === 'webllm' ? '1px solid var(--terminal-amber)' : '1px solid transparent',
+                    background: aiMode === 'webllm' ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                    borderRadius: '4px'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="aiMode" 
+                      value="webllm" 
+                      checked={aiMode === 'webllm'} 
+                      onChange={() => handleSelectAiMode('webllm')} 
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>Local In-Browser AI (Qwen 2.5 via WebGPU)</span>
+                        <span style={{ fontSize: '11px', background: '#302213', color: '#ffb03a', padding: '1px 6px', borderRadius: '3px' }}>RECOMMENDED</span>
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--terminal-dim)' }}>
+                        100% private, zero API key required. Runs directly on your device GPU via WebGPU.
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Gemini Cloud Option */}
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    cursor: 'pointer',
+                    padding: '8px',
+                    border: aiMode === 'gemini' ? '1px solid var(--terminal-amber)' : '1px solid transparent',
+                    background: aiMode === 'gemini' ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                    borderRadius: '4px'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="aiMode" 
+                      value="gemini" 
+                      checked={aiMode === 'gemini'} 
+                      onChange={() => handleSelectAiMode('gemini')} 
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>Gemini Cloud AI (API Key)</div>
+                      <div style={{ fontSize: '13px', color: 'var(--terminal-dim)' }}>
+                        Powered by Google Gemini 2.0 Flash. Requires your personal API key.
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Offline Rules Option */}
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    cursor: 'pointer',
+                    padding: '8px',
+                    border: aiMode === 'offline' ? '1px solid var(--terminal-amber)' : '1px solid transparent',
+                    background: aiMode === 'offline' ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                    borderRadius: '4px'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="aiMode" 
+                      value="offline" 
+                      checked={aiMode === 'offline'} 
+                      onChange={() => handleSelectAiMode('offline')} 
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>Classic Offline Engine (0 MB Download)</div>
+                      <div style={{ fontSize: '13px', color: 'var(--terminal-dim)' }}>
+                        Deterministic rule-based Zork parser. Instant boot with no model download.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* API Key field only if Gemini mode is chosen */}
+                {aiMode === 'gemini' && (
+                  <div style={{ marginTop: '14px', borderTop: '1px dashed var(--terminal-dim)', paddingTop: '12px' }}>
+                    <label style={{ fontSize: '14px' }}>&gt; GEMINI API KEY:</label>
+                    <input
+                      type="password"
+                      className="api-input"
+                      style={{ margin: '8px 0', fontSize: '16px' }}
+                      value={apiKey}
+                      onChange={(e) => handleSaveApiKey(e.target.value)}
+                      placeholder="Paste Gemini API key here..."
+                    />
+                  </div>
+                )}
+              </div>
 
               <button 
                 className="retro-btn"
-                style={{ padding: '12px 32px', fontSize: '15px' }}
-                onClick={() => { setPlayMode('creator'); audio.playBleep(660, 0.08); }}
+                style={{ padding: '12px 36px', fontSize: '16px' }}
+                onClick={handleProceedToCharacterCreation}
               >
                 START ADVENTURE
               </button>
