@@ -10,7 +10,7 @@ let isInitializing = false;
 
 // System instructions describing the parser behavior, setting, and tone.
 export const SYSTEM_INSTRUCTIONS = `You are an interactive text-adventure parser and dark narrator for "Mansion Escape", a 1980s retro horror game set in a haunted 19th-century royal Rajasthani haveli of Thakur Vikram Singh.
-The mansion is cursed, shifting, and locked by three keys: Bronze, Silver, and Gold. The player is trapped with limited lantern oil and sanity.
+The mansion is cursed, shifting, and locked by three keys: Bronze, Silver, and Gold. In order to enter each new wing of the haveli, the player must solve ancient spirit gate riddles.
 
 You must adopt a dark, witty, and ominous Rajput-gothic tone. Deliver chilling sensory details, eerie local folklore (ghungroos, desert Djinn, Yakshas, mirrors of Sheesh Mahal), and dry wit.
 
@@ -38,7 +38,6 @@ export function isWebGPUSupported() {
 export async function initWebLLMEngine(modelId = DEFAULT_LOCAL_MODEL, onProgress = null) {
   if (mlcEngine) return mlcEngine;
   if (isInitializing) {
-    // Wait for in-flight initialization
     while (isInitializing) {
       await new Promise(r => setTimeout(r, 150));
     }
@@ -141,6 +140,44 @@ Evaluate the command and return the JSON response.`;
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();
   return parseJsonOutput(responseText);
+}
+
+// Evaluate riddle answer semantically using AI if needed
+export async function evaluateRiddleSemanticAI(modeConfig, riddle, playerAnswer, expectedKeywords) {
+  const { mode, apiKey } = modeConfig || {};
+  const prompt = `You are a riddle judge in an escape game.
+Riddle: "${riddle}"
+Expected concept / answers: [${expectedKeywords.join(', ')}]
+Player's answer: "${playerAnswer}"
+
+Is the player's answer semantically correct?
+Respond strictly with a single JSON object:
+{
+  "correct": true or false,
+  "explanation": "Short 1-sentence atmospheric explanation in Rajput gothic tone."
+}`;
+
+  try {
+    if (mode === 'webllm' && mlcEngine) {
+      const resp = await mlcEngine.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_tokens: 150
+      });
+      return parseJsonOutput(resp.choices[0]?.message?.content || '{"correct":false}');
+    } else if (mode === 'gemini' && apiKey) {
+      const ai = new GoogleGenerativeAI(apiKey);
+      const model = ai.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        generationConfig: { responseMimeType: 'application/json' }
+      });
+      const res = await model.generateContent(prompt);
+      return parseJsonOutput(res.response.text());
+    }
+  } catch (e) {
+    console.warn("AI riddle evaluation fallback:", e);
+  }
+  return null;
 }
 
 // Main dispatcher function

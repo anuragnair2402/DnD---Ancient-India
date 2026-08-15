@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Color helpers — map is display-only, no interaction
+// Color helpers
 function roomFill(name, current) {
   if (name === current) return 'rgba(245, 158, 11, 0.20)';
   return '#090604';
@@ -17,16 +17,20 @@ function labelFill(name, current) {
   return '#5a4020';
 }
 
-export default function MansionMap({ currentRoom }) {
+function gateColor(gateKey, unlockedGates) {
+  if (unlockedGates && unlockedGates[gateKey]) {
+    return '#10b981'; // Green / open
+  }
+  return '#ef4444'; // Red / locked by riddle
+}
+
+export default function MansionMap({ currentRoom, unlockedGates = {} }) {
   return (
     <svg
       viewBox="0 0 310 300"
       style={{ width: '100%', maxHeight: '265px', display: 'block', pointerEvents: 'none' }}
       aria-label="Mansion floor plan map"
     >
-      {/* ─── MAIN FLOOR ─────────────────────────────────────── */}
-
-
       {/* ── Row 0: Stepwell Baoli (col 1) | Sheesh Mahal (col 2) ── */}
       <rect x="90" y="5" width="120" height="70" fill={roomFill("Stepwell Baoli", currentRoom)} stroke={roomStroke("Stepwell Baoli", currentRoom)} strokeWidth={roomStrokeW("Stepwell Baoli", currentRoom)} />
       <text x="150" y="35" textAnchor="middle" fontFamily="VT323, monospace" fontSize="14" fill={labelFill("Stepwell Baoli", currentRoom)}>Stepwell</text>
@@ -55,48 +59,52 @@ export default function MansionMap({ currentRoom }) {
       <text x="150" y="185" textAnchor="middle" fontFamily="VT323, monospace" fontSize="14" fill={labelFill("Front Foyer", currentRoom)}>Front</text>
       <text x="150" y="201" textAnchor="middle" fontFamily="VT323, monospace" fontSize="14" fill={labelFill("Front Foyer", currentRoom)}>Foyer</text>
 
-      {/* ─── DOOR GAPS ─────────────────────────────────────────
-          Erase wall at doorway, then draw two door jamb posts   */}
+      {/* ─── DOOR GAPS & RIDDLE GATE LOCK INDICATORS ─── */}
 
-      {/* Stepwell <-> Chowk  (y=75, centered x=150) */}
+      {/* Stepwell <-> Chowk (y=75, centered x=150) */}
       <rect x="136" y="70" width="28" height="10" fill="#090604" />
       <rect x="136" y="70" width="5" height="10" fill="#2a1e0c" />
       <rect x="159" y="70" width="5" height="10" fill="#2a1e0c" />
+      <circle cx="150" cy="75" r="3.5" fill={gateColor("Chowk Courtyard->Stepwell Baoli", unlockedGates)} />
 
-      {/* Sheesh Mahal <-> Mardana  (y=75, centered x=257) */}
+      {/* Sheesh Mahal <-> Mardana (y=75, centered x=257) */}
       <rect x="243" y="70" width="28" height="10" fill="#090604" />
       <rect x="243" y="70" width="5" height="10" fill="#2a1e0c" />
       <rect x="266" y="70" width="5" height="10" fill="#2a1e0c" />
+      <circle cx="257" cy="75" r="3.5" fill={gateColor("Mardana Wing->Sheesh Mahal", unlockedGates)} />
 
-      {/* Zenana <-> Chowk  (x=90, centered y=115) */}
+      {/* Zenana <-> Chowk (x=90, centered y=115) */}
       <rect x="85" y="108" width="10" height="18" fill="#090604" />
       <rect x="85" y="108" width="10" height="4" fill="#2a1e0c" />
       <rect x="85" y="122" width="10" height="4" fill="#2a1e0c" />
+      <circle cx="90" cy="117" r="3.5" fill={gateColor("Chowk Courtyard->Zenana Wing", unlockedGates)} />
 
-      {/* Chowk <-> Mardana  (x=210, centered y=115) */}
+      {/* Chowk <-> Mardana (x=210, centered y=115) */}
       <rect x="205" y="108" width="10" height="18" fill="#090604" />
       <rect x="205" y="108" width="10" height="4" fill="#2a1e0c" />
       <rect x="205" y="122" width="10" height="4" fill="#2a1e0c" />
+      <circle cx="210" cy="117" r="3.5" fill={gateColor("Chowk Courtyard->Mardana Wing", unlockedGates)} />
 
-      {/* Chowk <-> Foyer  (y=155, centered x=150) */}
+      {/* Chowk <-> Foyer (y=155, centered x=150) */}
       <rect x="136" y="150" width="28" height="10" fill="#090604" />
       <rect x="136" y="150" width="5" height="10" fill="#2a1e0c" />
       <rect x="159" y="150" width="5" height="10" fill="#2a1e0c" />
+      <circle cx="150" cy="155" r="3.5" fill={gateColor("Front Foyer->Chowk Courtyard", unlockedGates)} />
 
-      {/* ─── LEVEL SEPARATOR ─────────────────────────────────── */}
+      {/* ─── LEVEL SEPARATOR ─── */}
       <line x1="5" y1="232" x2="305" y2="232" stroke="#2a1e0c" strokeWidth="1" strokeDasharray="5 3" />
       <text x="155" y="243" textAnchor="middle" fontFamily="Press Start 2P, monospace" fontSize="6" fill="#3a2818" letterSpacing="1">SUBTERRANEAN</text>
 
       {/* Stairwell connector */}
       <line x1="150" y1="220" x2="150" y2="252" stroke="#2a1e0c" strokeWidth="1" strokeDasharray="3 2" />
-      <text x="150" y="227" textAnchor="middle" fontFamily="VT323, monospace" fontSize="10" fill="#2a1e0c">▼</text>
+      <circle cx="150" cy="236" r="3.5" fill={gateColor("Chowk Courtyard->Rasoda Kitchen", unlockedGates)} />
 
       {/* ── Rasoda Kitchen ── */}
       <rect x="90" y="252" width="120" height="43" fill={roomFill("Rasoda Kitchen", currentRoom)} stroke={roomStroke("Rasoda Kitchen", currentRoom)} strokeWidth={roomStrokeW("Rasoda Kitchen", currentRoom)} />
       <text x="150" y="271" textAnchor="middle" fontFamily="VT323, monospace" fontSize="13" fill={labelFill("Rasoda Kitchen", currentRoom)}>Rasoda</text>
       <text x="150" y="287" textAnchor="middle" fontFamily="VT323, monospace" fontSize="13" fill={labelFill("Rasoda Kitchen", currentRoom)}>Kitchen</text>
 
-      {/* ─── CURRENT LOCATION CURSOR ▶ ──────────────────────── */}
+      {/* ─── CURRENT LOCATION CURSOR ▶ ─── */}
       {currentRoom === "Stepwell Baoli"   && <text x="92"  y="20"  fontFamily="VT323, monospace" fontSize="14" fill="hsl(40,95%,55%)">▶</text>}
       {currentRoom === "Sheesh Mahal"     && <text x="212" y="20"  fontFamily="VT323, monospace" fontSize="14" fill="hsl(40,95%,55%)">▶</text>}
       {currentRoom === "Zenana Wing"      && <text x="7"   y="88"  fontFamily="VT323, monospace" fontSize="14" fill="hsl(40,95%,55%)">▶</text>}

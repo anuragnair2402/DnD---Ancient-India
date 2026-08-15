@@ -3,15 +3,16 @@ import { audio } from './components/AudioEngine';
 import HelpModal from './components/HelpModal';
 import CharacterCreator from './components/CharacterCreator';
 import MansionMap from './components/MansionMap';
-import { executeLocalCommand, rooms } from './services/localStory';
+import { executeLocalCommand, rooms, GATES, checkRiddleAnswer } from './services/localStory';
 import { 
   generateStoryResponse, 
+  evaluateRiddleSemanticAI,
   initWebLLMEngine, 
   isWebGPUSupported, 
   isWebLLMReady, 
   DEFAULT_LOCAL_MODEL 
 } from './services/ai';
-import { Volume2, VolumeX, ShieldAlert, Key, Cpu, Sparkles, Database } from 'lucide-react';
+import { Volume2, VolumeX, ShieldAlert, Key, Cpu, HelpCircle } from 'lucide-react';
 
 export default function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
@@ -21,6 +22,10 @@ export default function App() {
   // WebLLM Model loading state
   const [modelProgress, setModelProgress] = useState({ progress: 0, text: 'Initializing neural core...' });
   const [modelError, setModelError] = useState('');
+
+  // Gate Riddle Challenge State
+  const [activeRiddleGate, setActiveRiddleGate] = useState(null);
+  const [unlockedGates, setUnlockedGates] = useState({});
 
   // Player State
   const [player, setPlayer] = useState({
@@ -173,17 +178,19 @@ export default function App() {
       inventory: creatorData.inventory
     });
     
-    // Seed initial console output
-    const aiBanner = aiMode === 'webllm' 
-      ? '[AI Core: Qwen 2.5 Local WebGPU (In-Browser)]'
-      : (aiMode === 'gemini' && apiKey ? '[AI Core: Gemini Cloud]' : '[AI Core: Offline Rule Engine]');
+    setUnlockedGates({});
+    setActiveRiddleGate(null);
 
-    const initialText = `Mansion Escape - Version 2.0 (Web Interactive Fiction)
+    const aiBanner = aiMode === 'webllm' 
+      ? '[AI Narrative: Qwen 2.5 In-Browser WebGPU]'
+      : (aiMode === 'gemini' && apiKey ? '[AI Narrative: Gemini Cloud]' : '[AI Narrative: Offline Rules]');
+
+    const initialText = `MANSION ESCAPE: THE STAR OF MEWAR
 ${aiBanner}
 ------------------------------------------------------------------
 You slip through a high, broken stone Jharokha window, dropping onto the dusty floorboards. Behind you, the massive iron-studded foyer gates slam shut with an echo that shakes the cobwebs. The brass lock snaps shut with a cold click. You are trapped.
 
-The damp scent of decaying sandalwood hangs in the air. Your lantern casts long, flickering amber shadows. You must find the Bronze, Silver, and Gold Keys to unlock the gate and escape before the midnight hour (50 turns).
+The damp scent of decaying sandalwood hangs in the air. Each passage in this haveli is sealed by an ancient Rajput spirit ward. You must solve the Gate Riddles and recover the Bronze, Silver, and Gold Keys to escape before midnight (50 turns).
 
 ${rooms['Front Foyer'].description}`;
 
@@ -191,7 +198,7 @@ ${rooms['Front Foyer'].description}`;
       currentRoom: 'Front Foyer',
       turn: 1,
       oilReserve: 100,
-      objective: 'Search the Foyer and look for a way deeper into the mansion.',
+      objective: 'Search the Foyer and solve the riddle at the north archway.',
       log: [{ type: 'narrative', text: initialText }]
     });
 
@@ -216,9 +223,9 @@ ${rooms['Front Foyer'].description}`;
       log: [...prev.log, { type: 'command', text: `> ${cmd}` }]
     }));
 
-    // 2. Parse general utility commands locally
     const norm = cmd.toLowerCase().trim();
     
+    // System commands
     if (norm === 'help') {
       setHelpOpen(true);
       return;
@@ -227,7 +234,6 @@ ${rooms['Front Foyer'].description}`;
       setRestartConfirmOpen(true);
       return;
     }
-
     if (norm === 'inventory' || norm === 'i') {
       const invText = player.inventory.length > 0 
         ? `You are carrying:\n${player.inventory.map(item => `• ${item}`).join('\n')}`
@@ -239,13 +245,13 @@ ${rooms['Front Foyer'].description}`;
       return;
     }
 
-    // Handle gate escape logic
+    // Handle gate escape victory logic
     if ((norm === 'unlock gate' || norm === 'unlock gates' || norm === 'open gate' || norm === 'escape') && gameState.currentRoom === 'Front Foyer') {
       if (keysCollected.bronze && keysCollected.silver && keysCollected.gold) {
         setPlayMode('victory');
         audio.playBellToll();
         const score = 50 - gameState.turn;
-        const victoryText = `\n=== VICTORY ===\nYou slide the Bronze, Silver, and Gold Keys into the three heavy locks. With a grinding scream of rusted iron, the massive gates swing outward. You tumble out into the cool desert air of Rajasthan, clutching your prize under the starry sky.\n\nScore: ${score} points\nMoves taken: ${gameState.turn}/50`;
+        const victoryText = `\n=== VICTORY ===\nYou slide the Bronze, Silver, and Gold Keys into the three heavy locks. With a grinding scream of rusted iron, the massive gates swing outward. You tumble out into the cool desert air of Rajasthan, clutching the Star of Mewar diamond under the starry sky.\n\nScore: ${score} points\nMoves taken: ${gameState.turn}/50`;
         setGameState(prev => ({
           ...prev,
           log: [...prev.log, { type: 'system', text: victoryText }]
@@ -257,13 +263,99 @@ ${rooms['Front Foyer'].description}`;
         if (!keysCollected.gold) missingKeys.push("Gold");
         setGameState(prev => ({
           ...prev,
-          log: [...prev.log, { type: 'narrative', text: `The gate remains sealed. You are missing the following keys: ${missingKeys.join(', ')}.` }]
+          log: [...prev.log, { type: 'narrative', text: `The exit gate remains sealed. You are missing the following keys: ${missingKeys.join(', ')}.` }]
         }));
       }
       return;
     }
 
-    // 3. Process fast local movements
+    // 2. Active Riddle Evaluation
+    if (activeRiddleGate) {
+      const gate = GATES[activeRiddleGate];
+      
+      // Check if player is navigating away instead of answering
+      const currentRoomData = rooms[gameState.currentRoom];
+      const isTryingAnotherMovement = currentRoomData.exits[norm] !== undefined;
+      const targetRoom = currentRoomData.exits[norm];
+      const newGateKey = `${gameState.currentRoom}->${targetRoom}`;
+
+      if (isTryingAnotherMovement && newGateKey !== activeRiddleGate) {
+        // Player is moving in a different direction, clear current active riddle and process movement
+        setActiveRiddleGate(null);
+      } else {
+        // Evaluate the riddle answer
+        let answerResult = checkRiddleAnswer(activeRiddleGate, cmd);
+
+        // If local string match failed but AI mode is on, test semantic AI evaluation
+        if (!answerResult.correct && (aiMode === 'webllm' || (aiMode === 'gemini' && apiKey))) {
+          setIsGenerating(true);
+          try {
+            const aiEval = await evaluateRiddleSemanticAI(
+              { mode: aiMode, apiKey },
+              gate.riddle,
+              cmd,
+              gate.answers
+            );
+            if (aiEval && aiEval.correct) {
+              answerResult = { correct: true, gate };
+            }
+          } catch (err) {
+            console.warn("AI riddle check error:", err);
+          } finally {
+            setIsGenerating(false);
+          }
+        }
+
+        if (answerResult.correct) {
+          // Riddle solved!
+          audio.playItemAcquired();
+          const targetRoomName = activeRiddleGate.split('->')[1];
+          const newUnlocked = { ...unlockedGates, [activeRiddleGate]: true };
+          setUnlockedGates(newUnlocked);
+          setActiveRiddleGate(null);
+
+          const targetRoomData = rooms[targetRoomName];
+
+          setGameState(prev => ({
+            ...prev,
+            currentRoom: targetRoomName,
+            turn: prev.turn + 1,
+            oilReserve: Math.max(0, prev.oilReserve - 2),
+            log: [
+              ...prev.log, 
+              { type: 'narrative', text: `[RIDDLE SOLVED!]\n${gate.successText}\n\n${targetRoomData.name.toUpperCase()}\n${targetRoomData.description}` }
+            ]
+          }));
+          return;
+        } else {
+          // Wrong answer penalty
+          audio.playSanityDamage();
+          setScreenGlitch(true);
+          setTimeout(() => setScreenGlitch(false), 220);
+
+          setPlayer(prev => ({
+            ...prev,
+            stats: { ...prev.stats, sanity: Math.max(0, prev.stats.sanity - 5) }
+          }));
+
+          setGameState(prev => ({
+            ...prev,
+            turn: prev.turn + 1,
+            oilReserve: Math.max(0, prev.oilReserve - 2),
+            log: [
+              ...prev.log,
+              { 
+                type: 'narrative', 
+                text: `[INCORRECT ANSWER]\nThe spectral ward pulses with a harsh, chilling light. A voice whispers: "Wrong, mortal." (Sanity -5)\n\nHint: ${gate.hint}\nTry answering again, or type another command to move away.` 
+              }
+            ]
+          }));
+          return;
+        }
+      }
+    }
+
+    // 3. Movement with Gate Riddle Check
     const currentRoomData = rooms[gameState.currentRoom];
     const isMovement = currentRoomData.exits[norm] !== undefined;
 
@@ -276,22 +368,35 @@ ${rooms['Front Foyer'].description}`;
           playerClass: player.class,
           stats: player.stats
         },
-        cmd
+        cmd,
+        unlockedGates
       );
+
+      if (localResult.requiresRiddle) {
+        audio.playGhostSpotted();
+        setActiveRiddleGate(localResult.gateKey);
+        setGameState(prev => ({
+          ...prev,
+          objective: localResult.objective,
+          log: [...prev.log, { type: 'narrative', text: localResult.storyText }]
+        }));
+        return;
+      }
 
       audio.playCreak();
 
       setGameState(prev => ({
         ...prev,
-        currentRoom: localResult.stateUpdates.currentRoom,
+        currentRoom: localResult.stateUpdates.currentRoom || prev.currentRoom,
         turn: prev.turn + 1,
         oilReserve: Math.max(0, prev.oilReserve - 2),
+        objective: localResult.objective || prev.objective,
         log: [...prev.log, { type: 'narrative', text: localResult.storyText }]
       }));
       return;
     }
 
-    // AI narrative commands: triggered via '< examine' or when local AI is active for examine/riddles
+    // 4. AI Narrative & Lore Commands
     const isAiExplicitCommand = norm.startsWith('< examine') || norm.startsWith('<examine');
     const shouldUseAi = isAiExplicitCommand || (aiMode === 'webllm' && norm.startsWith('examine'));
 
@@ -315,17 +420,15 @@ ${rooms['Front Foyer'].description}`;
           cleanCmd
         );
       } else {
-        // Fallback local branching response
         result = executeLocalCommand({
           currentRoom: gameState.currentRoom,
           inventory: player.inventory,
           objective: gameState.objective,
           playerClass: player.class,
           stats: player.stats
-        }, cmd);
+        }, cmd, unlockedGates);
       }
 
-      // Execute suggested state updates
       const updates = result.stateUpdates || {};
       
       // Sanity Change
@@ -345,7 +448,7 @@ ${rooms['Front Foyer'].description}`;
         }));
       }
 
-      // Handle inventory additions
+      // Inventory additions
       if (updates.addInventory) {
         const toAdd = updates.addInventory;
         if (!player.inventory.includes(toAdd) && player.inventory.length < 6) {
@@ -359,7 +462,7 @@ ${rooms['Front Foyer'].description}`;
         }
       }
 
-      // Handle inventory removals
+      // Inventory removals
       if (updates.removeInventory) {
         const toRemove = updates.removeInventory;
         setPlayer(prev => ({
@@ -368,9 +471,9 @@ ${rooms['Front Foyer'].description}`;
         }));
       }
 
-      // Handle keys collected
+      // Keys collected
       if (updates.setKeyCollected) {
-        const keyColor = updates.setKeyCollected; // 'bronze'|'silver'|'gold'
+        const keyColor = updates.setKeyCollected;
         if (keyColor in keysCollected) {
           setKeysCollected(prev => ({
             ...prev,
@@ -379,14 +482,13 @@ ${rooms['Front Foyer'].description}`;
         }
       }
 
-      // Handle force movement
+      // Update state
       let nextRoom = gameState.currentRoom;
       if (updates.currentRoom && rooms[updates.currentRoom]) {
         nextRoom = updates.currentRoom;
         audio.playCreak();
       }
 
-      // Update turn, oil, room, and log
       setGameState(prev => ({
         ...prev,
         currentRoom: nextRoom,
@@ -397,18 +499,18 @@ ${rooms['Front Foyer'].description}`;
       }));
 
     } catch (err) {
-      console.warn("AI narrative failed, falling back:", err);
+      console.warn("Command execution fallback:", err);
       const fallbackResult = executeLocalCommand({
         currentRoom: gameState.currentRoom,
         inventory: player.inventory,
         objective: gameState.objective,
         playerClass: player.class,
         stats: player.stats
-      }, cmd);
+      }, cmd, unlockedGates);
 
       setGameState(prev => ({
         ...prev,
-        log: [...prev.log, { type: 'narrative', text: `[Switched to local parser]\n\n${fallbackResult.storyText}` }]
+        log: [...prev.log, { type: 'narrative', text: fallbackResult.storyText }]
       }));
     } finally {
       setIsGenerating(false);
@@ -445,9 +547,9 @@ ${rooms['Front Foyer'].description}`;
                   </div>
                   <div className="status-header-segment" style={{ gap: '8px' }}>
                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginRight: '8px' }}>
-                      {keysCollected.bronze && <Key size={14} style={{ color: '#cd7f32' }} />}
-                      {keysCollected.silver && <Key size={14} style={{ color: '#c0c0c0' }} />}
-                      {keysCollected.gold && <Key size={14} style={{ color: '#ffd700' }} />}
+                      {keysCollected.bronze && <Key size={14} style={{ color: '#cd7f32' }} title="Bronze Key" />}
+                      {keysCollected.silver && <Key size={14} style={{ color: '#c0c0c0' }} title="Silver Key" />}
+                      {keysCollected.gold && <Key size={14} style={{ color: '#ffd700' }} title="Gold Key" />}
                     </div>
                     <button className="help-btn" onClick={() => setRestartConfirmOpen(true)}>[MENU]</button>
                     <button className="help-btn" onClick={() => setHelpOpen(true)}>[HELP]</button>
@@ -470,14 +572,16 @@ ${rooms['Front Foyer'].description}`;
                   
                   {isGenerating && (
                     <div className="terminal-line typewriter-text dim-text">
-                      Thinking...
+                      Consulting ancient lore...
                     </div>
                   )}
                 </div>
 
                 {/* Input Area */}
                 <form className="input-area-container" onSubmit={handleCommandSubmit}>
-                  <span className="input-prompt">&gt;</span>
+                  <span className="input-prompt" style={{ color: activeRiddleGate ? 'var(--sanity-red)' : 'var(--terminal-amber)' }}>
+                    {activeRiddleGate ? 'RIDDLE>' : '>'}
+                  </span>
                   <input
                     ref={inputRef}
                     type="text"
@@ -485,7 +589,7 @@ ${rooms['Front Foyer'].description}`;
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     disabled={isGenerating}
-                    placeholder="Type command here (e.g. look, go north, take key)..."
+                    placeholder={activeRiddleGate ? "Type riddle answer here..." : "Type command here (e.g. look, go north, open trunk)..."}
                     autoComplete="off"
                     autoFocus
                   />
@@ -498,35 +602,35 @@ ${rooms['Front Foyer'].description}`;
                 <div className="map-panel">
                   <div className="panel-title">
                     <span>Mansion Floor Plan</span>
-                    <span style={{ fontSize: '9px', color: 'var(--terminal-dim)' }}>▶ = location</span>
+                    <span style={{ fontSize: '9px', color: 'var(--terminal-dim)' }}>🟢=Open 🔴=Riddle</span>
                   </div>
                   
                   <div className="map-canvas-container">
-                    <MansionMap currentRoom={gameState.currentRoom} />
+                    <MansionMap currentRoom={gameState.currentRoom} unlockedGates={unlockedGates} />
                   </div>
                 </div>
 
                 {/* Command Reference Help Panel */}
                 <div className="help-panel" style={{ flex: 1, overflowY: 'auto' }}>
                   <div className="panel-title">
-                    <span>Command Reference</span>
+                    <span>Quest & Guides</span>
                     <span style={{ fontSize: '9px', color: 'var(--terminal-amber)' }}>
-                      {aiMode === 'webllm' ? '● WebLLM Local' : (aiMode === 'gemini' ? '● Gemini Cloud' : '○ Offline')}
+                      {aiMode === 'webllm' ? '● WebLLM' : (aiMode === 'gemini' ? '● Gemini' : '○ Offline')}
                     </span>
                   </div>
                   <div className="sidebar-help-list">
-                    <h3>Movement</h3>
-                    <p>• Click adjacent room on map</p>
-                    <p>• Type: <strong>north</strong> / <strong>south</strong> / <strong>east</strong> / <strong>west</strong> / <strong>up</strong> / <strong>down</strong></p>
-                    
-                    <h3>Interaction</h3>
-                    <p>• <strong>take [item]</strong> / <strong>drop [item]</strong></p>
-                    <p>• <strong>open [door/trunk/cabinet]</strong></p>
-                    <p>• <strong>examine [object]</strong></p>
-                    <p>• <strong>use [item]</strong></p>
-                    
-                    <h3>System</h3>
-                    <p>• <strong>look</strong> / <strong>inventory</strong> / <strong>restart</strong></p>
+                    <h3>Current Objective</h3>
+                    <p style={{ color: '#ffea53', fontStyle: 'italic' }}>{gameState.objective}</p>
+
+                    <h3>Gate Riddles</h3>
+                    <p>• Entering new wings triggers a spirit gate riddle.</p>
+                    <p>• Type the answer word to unseal the gate.</p>
+
+                    <h3>Basic Verbs</h3>
+                    <p>• <strong>north / south / east / west / up / down</strong></p>
+                    <p>• <strong>take [item]</strong> / <strong>open [object]</strong> / <strong>use [item]</strong></p>
+                    <p>• <strong>examine [object]</strong> (or <strong>&lt; examine</strong>)</p>
+                    <p>• <strong>look</strong> / <strong>inventory</strong> / <strong>escape</strong></p>
                   </div>
                 </div>
               </div>
@@ -581,7 +685,7 @@ ${rooms['Front Foyer'].description}`;
                 MANSION ESCAPE
               </h1>
               <p style={{ maxWidth: '620px', margin: '0 auto 24px', lineHeight: '1.4' }}>
-                A retro horror interactive text adventure set in a cursed 19th-century Rajasthani Haveli. Solve class-based puzzles, manage sanity, and escape before the midnight hour.
+                A retro horror interactive text adventure set in a cursed 19th-century Rajasthani Haveli. Solve spirit gate riddles, recover the 3 royal keys, and escape before the midnight hour.
               </p>
 
               {/* AI Engine Selection Box */}
@@ -596,7 +700,7 @@ ${rooms['Front Foyer'].description}`;
                 textAlign: 'left'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--terminal-amber)', fontFamily: 'var(--font-pixel)', fontSize: '11px' }}>
-                  <Cpu size={14} /> SELECT AI NARRATIVE ENGINE
+                  <Cpu size={14} /> SELECT AI NARRATIVE & RIDDLE ENGINE
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -624,7 +728,7 @@ ${rooms['Front Foyer'].description}`;
                         <span style={{ fontSize: '11px', background: '#302213', color: '#ffb03a', padding: '1px 6px', borderRadius: '3px' }}>RECOMMENDED</span>
                       </div>
                       <div style={{ fontSize: '13px', color: 'var(--terminal-dim)' }}>
-                        100% private, zero API key required. Runs directly on your device GPU via WebGPU.
+                        100% private, zero API key required. Generates dynamic atmospheric descriptions and judges riddles.
                       </div>
                     </div>
                   </label>
@@ -676,7 +780,7 @@ ${rooms['Front Foyer'].description}`;
                     <div>
                       <div style={{ fontWeight: 'bold' }}>Classic Offline Engine (0 MB Download)</div>
                       <div style={{ fontSize: '13px', color: 'var(--terminal-dim)' }}>
-                        Deterministic rule-based Zork parser. Instant boot with no model download.
+                        Deterministic rule-based Zork parser with ancient Rajasthani riddles.
                       </div>
                     </div>
                   </label>
@@ -742,7 +846,7 @@ ${rooms['Front Foyer'].description}`;
                 ESCAPE SUCCESSFUL
               </h1>
               <p style={{ maxWidth: '600px', margin: '20px auto' }}>
-                You have successfully unlocked the iron Foyer gates and escaped the cursed estate with the legendary Star of Mewar diamond. You live to tell the tale.
+                You have solved the ancient spirit riddles, collected the three royal keys, and escaped the cursed estate with the legendary Star of Mewar diamond!
               </p>
               <button 
                 className="retro-btn"
