@@ -244,7 +244,7 @@ describe('Mansion Escape Gameplay Engine', () => {
       };
 
       const res = executeLocalCommand(matchState, 'light match');
-      expect(res.storyText).toContain('bright flare illuminates');
+      expect(res.storyText).toContain('amber flare illuminates');
     });
 
     it('checks oil lantern reserves', () => {
@@ -283,7 +283,7 @@ describe('Mansion Escape Gameplay Engine', () => {
 
       const res = executeLocalCommand(state, 'drop Matches');
       expect(res.stateUpdates.removeInventory).toBe('Matches');
-      expect(res.storyText).toContain('dropped Matches');
+      expect(res.storyText).toContain('placed Matches down');
     });
   });
 });

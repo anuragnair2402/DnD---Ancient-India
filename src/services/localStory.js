@@ -1,4 +1,4 @@
-// Fallback Offline Branching Narrative Database & Riddle Engine for Mansion Escape
+// Branching Narrative Database, Riddle Engine & World Model for Mansion Escape
 
 export const GATES = {
   "Front Foyer->Chowk Courtyard": {
@@ -95,6 +95,29 @@ export const rooms = {
   }
 };
 
+export function getSanityAtmosphere(sanity) {
+  if (sanity <= 20) {
+    return "\n\n[PSYCHIC STATIC: Your vision splits into fractured reflections. Distant voices chant your name from the walls.]";
+  }
+  if (sanity <= 45) {
+    return "\n\n[THE AIR IS THICK: The shadows along the floorboards seem to writhe when you are not looking directly at them.]";
+  }
+  return "";
+}
+
+export function getGlobalTurnBeat(turn) {
+  if (turn === 15) {
+    return "\n\n=== THE HAUNTING DEEPENS (Turn 15/50) ===\nA distant bronze bell tolls from the dark courtyard. The desert wind rushes through the jharokhas, fluttering the ancient silks.";
+  }
+  if (turn === 30) {
+    return "\n\n=== THE FREEZING DRAFT (Turn 30/50) ===\nThe temperature plunges abruptly. Your breath billows in white clouds across the stone arches as midnight draws closer.";
+  }
+  if (turn === 45) {
+    return "\n\n=== THE MIDNIGHT HOUR APPROACHES (Turn 45/50) ===\nThe foundation of the haveli shudders. Heavy, deliberate footsteps echo on the floorboards above. Only 5 moves remain before the Djinn awakens!";
+  }
+  return "";
+}
+
 export function checkRiddleAnswer(gateKey, userAnswer) {
   const gate = GATES[gateKey];
   if (!gate) return { correct: true };
@@ -116,6 +139,7 @@ export function checkRiddleAnswer(gateKey, userAnswer) {
 export function executeLocalCommand(state, command, unlockedGates = {}) {
   const normalizedCommand = command.trim().toLowerCase();
   const room = rooms[state.currentRoom];
+  const sanity = state.stats?.sanity || 100;
 
   const match = (keywords) => {
     return keywords.every(kw => normalizedCommand.includes(kw));
@@ -159,9 +183,10 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
 
     // Gate is open — travel to next room
     const nextRoom = rooms[nextRoomName];
+    const sanityAtmo = getSanityAtmosphere(sanity);
     return {
       location: nextRoom.name,
-      storyText: `You pass through into the ${nextRoom.name}.\n\n${nextRoom.description}`,
+      storyText: `You pass through into the ${nextRoom.name}.\n\n${nextRoom.description}${sanityAtmo}`,
       objective: state.objective,
       stateUpdates: {
         currentRoom: nextRoom.name
@@ -169,11 +194,12 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     };
   }
 
-  // 2. Utility & General Commands (look, stats, inventory, matches, journal)
+  // 2. Utility & General Commands (look, stats, inventory, matches, journal, oil)
   if (normalizedCommand === "look" || normalizedCommand === "l") {
+    const sanityAtmo = getSanityAtmosphere(sanity);
     return {
       location: state.currentRoom,
-      storyText: room.description,
+      storyText: `${room.description}${sanityAtmo}`,
       objective: state.objective,
       stateUpdates: {}
     };
@@ -183,7 +209,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     if (state.inventory.includes("Old Journal")) {
       return {
         location: state.currentRoom,
-        storyText: "You open the leather-bound journal. Hand-drawn diagrams note:\n• Bronze Key: Hidden in the Front Foyer drawer.\n• Silver Key: Locked inside the heavy Zenana trunk.\n• Gold Key: Guarded by the Yaksha spirit in the Stepwell Baoli (use Sacred Ash from the kitchen to dispel it).\n• Star of Mewar: Sealed behind the Mahogany Gate in Sheesh Mahal.",
+        storyText: "You open the leather-bound field journal. Hand-drawn diagrams note:\n• Bronze Key: Hidden in the Front Foyer drawer.\n• Silver Key: Locked inside the heavy Zenana trunk.\n• Gold Key: Guarded by the Yaksha spirit in the Stepwell Baoli (use Sacred Ash from the kitchen pantry to dispel it).\n• Star of Mewar: Sealed behind the Mahogany Gate in Sheesh Mahal.",
         objective: state.objective,
         stateUpdates: {}
       };
@@ -194,7 +220,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     if (state.inventory.includes("Matches")) {
       return {
         location: state.currentRoom,
-        storyText: "You strike a match. The bright flare illuminates the cold carvings of the haveli, casting stark dancing shadows before flickering out in the chill breeze.",
+        storyText: "You strike a sulfur match. The sudden burst of amber flare illuminates the cold sandstone carvings, casting stark dancing shadows across the ceiling before flickering out in the draft.",
         objective: state.objective,
         stateUpdates: {}
       };
@@ -204,7 +230,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
   if (match(["check", "oil"]) || match(["examine", "lantern"]) || match(["look", "lantern"])) {
     return {
       location: state.currentRoom,
-      storyText: `Your brass lantern hums with a steady glow. Oil reserve is at ${state.oilReserve !== undefined ? state.oilReserve : 100}%. Keep moving before it fades.`,
+      storyText: `Your brass lantern hums with steady amber warmth. Oil reserve is at ${state.oilReserve !== undefined ? state.oilReserve : 100}%. Keep moving before the darkness takes over.`,
       objective: state.objective,
       stateUpdates: {}
     };
@@ -214,7 +240,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     const st = state.stats || {};
     return {
       location: state.currentRoom,
-      storyText: `=== EXPLORER STATS ===\nClass: ${state.playerClass || 'Adventurer'}\nSanity: ${st.sanity || 100}%\nResolve: ${st.resolve || 10}\nPerception: ${st.perception || 10}\nCourage: ${st.courage || 10}`,
+      storyText: `=== EXPLORER RECORD ===\nClass: ${state.playerClass || 'Adventurer'}\nSanity: ${st.sanity || 100}%\nResolve: ${st.resolve || 10}\nPerception: ${st.perception || 10}\nCourage: ${st.courage || 10}`,
       objective: state.objective,
       stateUpdates: {}
     };
@@ -227,21 +253,55 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     if (matched) {
       return {
         location: state.currentRoom,
-        storyText: `You dropped ${matched} onto the stone floor.`,
+        storyText: `You placed ${matched} down onto the dusty floor.`,
         objective: state.objective,
         stateUpdates: { removeInventory: matched }
       };
     } else {
       return {
         location: state.currentRoom,
-        storyText: `You do not have '${itemToDrop}' in your inventory.`,
+        storyText: `You do not carry '${itemToDrop}'.`,
         objective: state.objective,
         stateUpdates: {}
       };
     }
   }
 
-  // 3. Room specific keyword routing
+  // 3. Infocom "Examine Everything" Environmental Handlers
+  if (match(["examine", "dust"]) || match(["look", "dust"])) {
+    return {
+      location: state.currentRoom,
+      storyText: "Decades of grey desert sand and pulverized sandalwood coat every surface. The dust shifts faintly, as if stirred by unseen passing feet.",
+      objective: state.objective,
+      stateUpdates: {}
+    };
+  }
+  if (match(["examine", "shadow"]) || match(["look", "shadow"])) {
+    return {
+      location: state.currentRoom,
+      storyText: "Your lantern casts long, jittering silhouettes against the wall. For a split second, your shadow doesn't raise its arm when you do.",
+      objective: state.objective,
+      stateUpdates: {}
+    };
+  }
+  if (match(["examine", "ceiling"]) || match(["look", "ceiling"]) || match(["look", "up"])) {
+    return {
+      location: state.currentRoom,
+      storyText: "The high stone ceiling is supported by carved wooden beams, hung heavy with cobwebs and soot from forgotten royal torches.",
+      objective: state.objective,
+      stateUpdates: {}
+    };
+  }
+  if (match(["examine", "floor"]) || match(["look", "floor"]) || match(["look", "down"])) {
+    return {
+      location: state.currentRoom,
+      storyText: "The stone floor is freezing beneath your boots. Scratches near the doors hint at past occupants dragging heavy barricades in desperate panic.",
+      objective: state.objective,
+      stateUpdates: {}
+    };
+  }
+
+  // 4. Room specific keyword routing
   let storyText = "";
   let stateUpdates = {};
   let objective = state.objective;
@@ -266,8 +326,10 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
   else if (state.currentRoom === "Chowk Courtyard") {
     if (match(["examine", "column"]) || match(["look", "column"]) || match(["examine", "pillar"]) || match(["look", "pillar"])) {
       storyText = "The sandstone columns are carved with ancient Rajput battle scenes and dancing spirits. Sand whistles eerily through the arches.";
-    } else if (match(["examine", "ground"]) || match(["look", "ground"]) || match(["examine", "floor"]) || match(["look", "fountain"])) {
-      storyText = "The courtyard ground is paved with cracked marble. In the center is a dry fountain filled with black sand.";
+    } else if (match(["examine", "ground"]) || match(["look", "ground"]) || match(["examine", "fountain"]) || match(["look", "fountain"])) {
+      storyText = "The courtyard ground is paved with cracked marble. In the center is a dry fountain filled with black desert sand and sun-bleached snake skins.";
+    } else if (match(["look", "sky"]) || match(["examine", "sky"])) {
+      storyText = "Above the open courtyard, the desert sky is pitch black—not a single star shines through the ancient curse.";
     }
   }
 
@@ -317,6 +379,8 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     } else if (match(["examine", "mirror"]) || match(["look", "mirror"])) {
       storyText = "You peer into the cracked dressing mirror. A pale ghostly Rani glares back from behind your shoulder, wailing into the void before vanishing. (Sanity -10)";
       stateUpdates = { sanityChange: -10 };
+    } else if (match(["examine", "silk"]) || match(["examine", "curtain"]) || match(["look", "drapes"])) {
+      storyText = "Tattered crimson and gold silks hang from carved archways, smelling of decayed rosewater and dried jasmine.";
     }
   }
 
@@ -326,6 +390,8 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
       stateUpdates = { sanityChange: -5 };
     } else if (match(["read", "scroll"]) || match(["read", "letter"]) || match(["open", "desk"]) || match(["examine", "desk"]) || match(["search", "desk"])) {
       storyText = "You search the teak writing desk. Inside is a scroll from the court priest: 'The Yaksha in the Baoli is vulnerable only to the Sacred Ash stored in the subterranean Rasoda pantry.'";
+    } else if (match(["examine", "shield"]) || match(["look", "shield"])) {
+      storyText = "Heavy hide and steel shields hang mounted between the swords, bearing the sunburst crest of Mewar.";
     }
   }
 
@@ -341,6 +407,8 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     } else if (match(["examine", "pot"]) || match(["search", "pot"]) || match(["search", "jar"])) {
       storyText = "You thrust your hand into a dark clay pot. A black desert scorpion stings your finger! Burning venom courses into your veins. (Sanity -10)";
       stateUpdates = { sanityChange: -10 };
+    } else if (match(["examine", "stove"]) || match(["look", "stove"]) || match(["examine", "hearth"])) {
+      storyText = "Cold black iron hearths sit lined against the wall, covered in generations of dead grey ash.";
     }
   }
 
@@ -363,6 +431,8 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     } else if (match(["drink", "water"]) || match(["drink", "well"])) {
       storyText = "You cup the freezing well water to your lips. It is crystal pure, soothing your trembling nerves. (Sanity +20)";
       stateUpdates = { sanityChange: 20 };
+    } else if (match(["examine", "water"]) || match(["look", "water"]) || match(["examine", "well"])) {
+      storyText = "The black water is mirror-still and unfathomably deep. Submerged steps descend down into endless darkness.";
     }
   }
 
@@ -375,9 +445,11 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
         stateUpdates = { addInventory: "Star of Mewar" };
         objective = "Return to the Front Foyer and type 'escape' or 'unlock gate' to win!";
       }
-    } else if (match(["examine", "mirror"]) || match(["look", "mirror"])) {
+    } else if (match(["examine", "mirror"]) || match(["look", "mirror"]) || match(["look", "reflections"])) {
       storyText = "In the infinite reflections, you see your own corpse wandering the mansion for eternity. The terrifying realization drains your resolve. (Sanity -15)";
       stateUpdates = { sanityChange: -15 };
+    } else if (match(["examine", "pedestal"]) || match(["look", "pedestal"])) {
+      storyText = "A black onyx pedestal sits in the exact center of the chamber, catching every beam of reflected light.";
     }
   }
 
@@ -391,7 +463,7 @@ export function executeLocalCommand(state, command, unlockedGates = {}) {
     };
   }
 
-  // 4. Default fallback
+  // 5. Default fallback
   const fallbacks = [
     "Your voice echoes through the empty stone arches. Nothing happens.",
     "You attempt that action, but the thick desert dust only rises to choke your breath. Focus on the keys and gates.",
