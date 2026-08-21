@@ -34,7 +34,10 @@ export function classify(raw) {
 
   // system
   const sys = ['help', 'restart', 'look', 'l', 'inventory', 'i', 'stats', 'status', 'score', 'objective', 'codex', 'almanac', 'journal'];
-  if (sys.includes(input)) return { kind: COMMAND.SYSTEM, input, action: input === 'l' ? 'look' : input };
+  if (sys.includes(input) || input.startsWith('help ')) {
+    const act = input.startsWith('help') ? 'help' : (input === 'l' ? 'look' : (input === 'i' ? 'inventory' : input));
+    return { kind: COMMAND.SYSTEM, input, action: act };
+  }
 
   // sanity actions
   const san = ['meditate', 'pray', 'surrender', 'gaze', 'whisper', 'vent', 'rest'];
