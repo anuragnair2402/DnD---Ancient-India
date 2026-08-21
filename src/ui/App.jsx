@@ -73,14 +73,16 @@ export default function App() {
 
   const saveKey = (k) => { setApiKey(k); localStorage.setItem('gemini_api_key', k); audio.playBleep(660, 0.08); };
 
-  const saveRun = (state, logData) => {
+  const saveRun = (state, logData, historyData) => {
     localStorage.setItem('active_run_state', JSON.stringify(state));
     localStorage.setItem('active_run_log', JSON.stringify(logData));
+    if (historyData) localStorage.setItem('active_run_history', JSON.stringify(historyData));
   };
 
   const clearRun = () => {
     localStorage.removeItem('active_run_state');
     localStorage.removeItem('active_run_log');
+    localStorage.removeItem('active_run_history');
   };
 
   const hasSavedRun = Boolean(localStorage.getItem('active_run_state') && localStorage.getItem('active_run_log'));
@@ -107,15 +109,19 @@ export default function App() {
   const handleResumeGame = () => {
     const savedStateStr = localStorage.getItem('active_run_state');
     const savedLogStr = localStorage.getItem('active_run_log');
+    const savedHistoryStr = localStorage.getItem('active_run_history');
     if (!savedStateStr || !savedLogStr) return;
     try {
       const savedState = JSON.parse(savedStateStr);
       const savedLog = JSON.parse(savedLogStr);
+      const savedHistory = savedHistoryStr ? JSON.parse(savedHistoryStr) : [];
       
       const director = makeDirector();
       const session = new GameSession(savedState, director.hooks);
       sessionRef.current = session;
       setLog(savedLog);
+      setCommandHistory(savedHistory);
+      setHistoryIndex(-1);
       setActiveRiddle(null); setPendingOffer(null); setFinale(null); setGameOverCause('');
       syncView();
       setPlayMode('playing');
@@ -219,10 +225,11 @@ export default function App() {
     setFreezeInput(true);
     try {
       const res = await s.submit(cmd);
+      const playerLine = { type: 'command', text: cmd };
       setLog(prev => {
-        const nextLog = [...prev, ...res.story];
+        const nextLog = [...prev, playerLine, ...res.story];
         if (res.playMode !== 'victory' && res.playMode !== 'gameover') {
-          saveRun(s.state, nextLog);
+          saveRun(s.state, nextLog, [...commandHistory, cmd]);
         }
         return nextLog;
       });
