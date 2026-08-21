@@ -1,71 +1,144 @@
 import { ROOMS, GATES, sanityTierOf } from '../../game/world/world.js';
 
-// Schematic room positions per layer (viewBox coordinates).
+// Clean orthogonal grid coordinates (X, Y) per room
 const POS = {
-  // ground
-  front_foyer: [50, 190], chowk_courtyard: [50, 120],
-  zenana_wing: [-40, 120], mardana_wing: [140, 120],
-  darbar_hall: [50, 50], library: [-40, 50], armory: [140, 50],
-  sheeshqhana: [140, 190], sheesh_mahal: [230, 50],
-  // upper
-  tower_stair: [50, 120], observatory: [50, 50], rooftop: [50, -20], echo_gallery: [170, -20],
-  // under
-  rasoda_kitchen: [50, 200], fountain_cistern: [140, 200],
-  charnel_vault: [50, 280], smugglers_tunnel: [140, 280],
-  tamasha_pit: [230, 280], djinn_sanctum: [140, 350],
-  // veil
-  weeping_garden: [-40, 190], echo_corridor: [-40, 50]
+  // --- GROUND FLOOR ---
+  // Center Column
+  front_foyer: [120, 200],
+  chowk_courtyard: [120, 120],
+  darbar_hall: [120, 40],
+  // West Column
+  zenana_wing: [30, 120],
+  library: [30, 40],
+  // East Column
+  mardana_wing: [210, 120],
+  armory: [210, 40],
+  sheeshqhana: [210, 200],
+  sheesh_mahal: [300, 40],
+  // Ground Veil Rooms
+  weeping_garden: [-60, 120],
+  echo_corridor: [-60, 40],
+
+  // --- UPPER FLOOR ---
+  tower_stair: [120, 180],
+  observatory: [120, 100],
+  rooftop: [120, 20],
+  // Upper Veil Room
+  echo_gallery: [210, 20],
+
+  // --- UNDERCROFT ---
+  rasoda_kitchen: [120, 40],
+  fountain_cistern: [210, 40],
+  smugglers_tunnel: [210, 120],
+  tamasha_pit: [210, 200],
+  charnel_vault: [120, 200],
+  djinn_sanctum: [120, 280]
+};
+
+// Maps Veil rooms strictly to their parent floor layer
+const VEIL_PARENT_FLOOR = {
+  weeping_garden: 'ground',
+  echo_corridor: 'ground',
+  echo_gallery: 'upper'
 };
 
 function layerOf(roomId) {
   return (ROOMS[roomId] && ROOMS[roomId].layer) || 'ground';
 }
 
+function short(name) {
+  if (!name) return '';
+  if (name.includes('Mahal')) return 'Sheesh Mahal';
+  if (name.includes('Cistern')) return 'Cistern';
+  if (name.includes('Smuggler')) return 'Tunnel';
+  if (name.includes('Djinn')) return 'Djinn’s Sanctum';
+  if (name.includes('Chowk')) return 'Chowk';
+  if (name.includes('Weeping')) return 'Weeping Garden';
+  if (name.includes('Corridor')) return 'Echo Corridor';
+  if (name.includes('Gallery')) return 'Echo Gallery';
+  return name.split(' (')[0].replace(' Wing', '').replace(' Maharaja’s', 'Obsv.');
+}
+
 function RoomBox({ id, current, tier, doors }) {
   const [x, y] = POS[id] || [0, 0];
   const isCur = id === current;
   const room = ROOMS[id];
-  const veil = room && room.veil;
-  // Veil rooms only shown if the player can perceive them
-  if (veil) {
-    const canSee = tier === 'haunted' || tier === 'fractured';
-    if (!canSee) return null;
-  }
-  const showUnvisited = room && !doors.visited?.[id] && !isCur;
-  const stroke = isCur ? 'hsl(40,95%,55%)' : veil ? 'hsl(270,60%,55%)' : showUnvisited ? 'hsl(40,20%,18%)' : '#6a4c24';
-  const fill = isCur ? 'rgba(245,158,11,0.22)' : showUnvisited ? 'rgba(40,30,15,0.35)' : '#0d0a06';
+  if (!room) return null;
+  const isVeil = room.veil || layerOf(id) === 'veil';
+  
+  const showUnvisited = !doors.visited?.[id] && !isCur;
+  const stroke = isCur ? 'hsl(40,95%,55%)' : isVeil ? '#a78bfa' : showUnvisited ? 'hsl(40,20%,20%)' : '#8a6a3a';
+  const fill = isCur ? 'rgba(245,158,11,0.25)' : isVeil ? 'rgba(139,92,246,0.18)' : showUnvisited ? 'rgba(30,22,12,0.45)' : '#0f0c08';
+  
   return (
     <g>
-      <rect x={x - 36} y={y - 16} width={72} height={32} rx={2} fill={fill} stroke={stroke} strokeWidth={isCur ? 2 : 1.2} />
-      <text x={x} y={y + 4} textAnchor="middle" fontFamily="VT323, monospace" fontSize={10} fill={isCur ? '#ffd27d' : veil ? '#c39bff' : '#8a6a3a'}>{short(room.name)}</text>
+      <rect 
+        x={x - 36} 
+        y={y - 14} 
+        width={72} 
+        height={28} 
+        rx={3} 
+        fill={fill} 
+        stroke={stroke} 
+        strokeWidth={isCur ? 2 : 1.2} 
+        strokeDasharray={isVeil ? '4 2' : 'none'}
+      />
+      <text 
+        x={x} 
+        y={y + 4} 
+        textAnchor="middle" 
+        fontFamily="VT323, monospace" 
+        fontSize={11} 
+        fill={isCur ? '#ffd27d' : isVeil ? '#c4b5fd' : showUnvisited ? '#6b5435' : '#b89460'}
+      >
+        {short(room.name)}
+      </text>
     </g>
   );
 }
 
-function short(name) {
-  if (name.includes('Mahal')) return 'Sheesh Mahal';
-  if (name.includes('Cistern')) return 'Cistern';
-  if (name.includes('Smuggler')) return 'Tunnel';
-  if (name.includes('Djinn')) return 'Djinn\u2019s Sanctum';
-  return name.split(' (')[0].replace(' Wing', '').replace(' Courtyard', 'Chowk').replace(' Maharaja\u2019s', 'Obsv.');
-}
-
-function Connector({ rooms, current, unlockedGates, tier }) {
-  // draw a line between two rooms if both are visible
+function Connector({ rooms, unlockedGates }) {
   const [a, b] = rooms;
-  const [ax, ay] = POS[a] || [0, 0]; const [bx, by] = POS[b] || [0, 0];
+  const [ax, ay] = POS[a] || [0, 0];
+  const [bx, by] = POS[b] || [0, 0];
+  
   const gateKey = Object.keys(GATES).find(k => {
     const [f, t] = k.split('->');
     return (f === a && t === b) || (f === b && t === a);
   });
-  const isVeil = [a, b].some(id => ROOMS[id] && ROOMS[id].veil) || (layerOf(a) === 'veil');
+  
+  const isVeil = (ROOMS[a]?.veil || layerOf(a) === 'veil') || (ROOMS[b]?.veil || layerOf(b) === 'veil');
   const open = gateKey ? !!unlockedGates[gateKey] : true;
-  const color = open ? '#2a8f6d' : isVeil ? '#7a5fd0' : '#b33a2a';
-  const dash = open ? 'none' : '4 3';
-  const x1 = ax + (bx > ax ? 30 : bx < ax ? -30 : 0);
-  const x2 = bx + (ax > bx ? 30 : ax < bx ? -30 : 0);
-  const c = <line x1={x1} y1={ay} x2={x2} y2={by} stroke={color} strokeWidth={1.4} strokeDasharray={dash} />;
-  const dot = !open ? <circle cx={(x1 + x2) / 2} cy={(ay + by) / 2} r={3} fill={color} /> : null;
+  const color = open ? (isVeil ? '#8b5cf6' : '#2a8f6d') : '#b33a2a';
+  const dash = open ? (isVeil ? '4 2' : 'none') : '3 3';
+  
+  const dx = bx - ax;
+  const dy = by - ay;
+  
+  let x1, y1, x2, y2;
+  if (dy === 0) {
+    // Pure horizontal
+    x1 = ax + Math.sign(dx) * 36;
+    x2 = bx - Math.sign(dx) * 36;
+    y1 = ay;
+    y2 = by;
+  } else if (dx === 0) {
+    // Pure vertical
+    x1 = ax;
+    x2 = bx;
+    y1 = ay + Math.sign(dy) * 14;
+    y2 = by - Math.sign(dy) * 14;
+  } else {
+    // Diagonal
+    const angle = Math.atan2(dy, dx);
+    x1 = ax + Math.cos(angle) * 36;
+    y1 = ay + Math.sin(angle) * 14;
+    x2 = bx - Math.cos(angle) * 36;
+    y2 = by - Math.sin(angle) * 14;
+  }
+
+  const c = <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={1.4} strokeDasharray={dash} />;
+  const dot = !open ? <circle cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} r={3} fill={color} /> : null;
   return <g>{c}{dot}</g>;
 }
 
@@ -74,15 +147,17 @@ export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 1
   const currentLayer = currentRoom ? layerOf(currentRoom) : 'ground';
   const canSeeVeil = tier === 'haunted' || tier === 'fractured';
   
-  // Filter rooms to only those on the current floor, plus the Veil if sanity is low
+  // Filter rooms to strictly this floor + relevant veil rooms for this floor only
   const activeRooms = Object.keys(POS).filter(id => {
     const l = layerOf(id);
-    return l === currentLayer || (l === 'veil' && canSeeVeil);
+    if (l === currentLayer) return true;
+    if (l === 'veil' && canSeeVeil && VEIL_PARENT_FLOOR[id] === currentLayer) return true;
+    return false;
   });
 
-  const paddingX = 80;
-  const paddingY = 80;
-  let dynamicViewBox = "-70 -40 340 420";
+  const paddingX = 45;
+  const paddingY = 35;
+  let dynamicViewBox = "-80 0 420 260";
 
   if (activeRooms.length > 0) {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -107,7 +182,6 @@ export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 1
     const room = ROOMS[id];
     if (room && room.exits) {
       Object.values(room.exits).forEach(targetId => {
-        // Only draw connections if both rooms are currently visible on this floor map
         if (activeRooms.includes(targetId)) {
           const edgeId = [id, targetId].sort().join('--');
           if (!edges.has(edgeId)) {
@@ -119,24 +193,17 @@ export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 1
     }
   });
 
-  const layerNames = { ground: 'Ground Floor', upper: 'Upper Floor', under: 'Undercroft', veil: 'The Sight' };
+  const layerNames = { ground: 'Ground Floor', upper: 'Upper Observatory', under: 'The Undercroft' };
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <div style={{ position: 'absolute', top: 6, left: 8, fontSize: '12px', color: 'var(--terminal-amber)', textShadow: '0 0 4px var(--terminal-glow)' }}>
-        [ {layerNames[currentLayer] ? layerNames[currentLayer].toUpperCase() : 'UNKNOWN'} ]
+      <div style={{ position: 'absolute', top: 6, left: 8, fontSize: '11px', color: 'var(--terminal-amber)', textShadow: '0 0 4px var(--terminal-glow)' }}>
+        [ {layerNames[currentLayer] ? layerNames[currentLayer].toUpperCase() : 'FLOOR PLAN'} ]
+        {canSeeVeil && <span style={{ color: '#a78bfa', marginLeft: '6px', fontSize: '9px' }}>✦ THE SIGHT ACTIVE</span>}
       </div>
       <svg viewBox={dynamicViewBox} style={{ width: '100%', height: '100%', display: 'block' }}>
-        {canSeeVeil && (
-          <g>
-            <text x={-40} y={-28} textAnchor="middle" fontFamily="Press Start 2P, monospace" fontSize={6} fill="#7a5fd0" letterSpacing={1}>THE SIGHT</text>
-            <line x1={-40} y1={-20} x2={-40} y2={230} stroke="#2a2240" strokeWidth={1} strokeDasharray="3 3" />
-            <line x1={165} y1={-20} x2={165} y2={230} stroke="#2a2240" strokeWidth={1} strokeDasharray="3 3" />
-          </g>
-        )}
-
         {connections.map(([a, b]) => (
-          <Connector key={`${a}-${b}`} rooms={[a, b]} current={currentRoom} unlockedGates={unlockedGates} tier={tier} />
+          <Connector key={`${a}-${b}`} rooms={[a, b]} unlockedGates={unlockedGates} />
         ))}
 
         {activeRooms.map(id => (
