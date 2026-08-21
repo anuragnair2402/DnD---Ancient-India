@@ -3,6 +3,7 @@ import { audio } from '../components/AudioEngine.js';
 import HelpModal from './components/HelpModal.jsx';
 import CharacterCreator from './components/CharacterCreator.jsx';
 import MansionMap from './components/MansionMap.jsx';
+import LoadingScreen from './components/LoadingScreen.jsx';
 import { SanityGauge, EntityPanel, Codex } from './components/panels.jsx';
 import { GameSession } from '../game/engine/session.js';
 import { createInitialState } from '../game/engine/state.js';
@@ -400,14 +401,10 @@ export default function App() {
           )}
 
           {playMode === 'loading' && (
-            <div className="api-container" style={{ alignItems: 'center' }}>
-              <h2 className="creator-title" style={{ fontSize: '24px', marginBottom: '24px' }}>CONJURING THE DJINN...</h2>
-              <div style={{ width: '300px', height: '14px', border: '1px solid var(--terminal-amber)', padding: '2px', marginBottom: '16px' }}>
-                <div style={{ height: '100%', width: `${modelProgress.progress}%`, backgroundColor: 'var(--terminal-amber)', transition: 'width 0.2s' }} />
-              </div>
-              <p style={{ color: 'var(--terminal-dim)', fontSize: '14px', minHeight: '40px', textAlign: 'center' }}>{modelProgress.text}</p>
-              <button className="help-btn" style={{ marginTop: '16px', opacity: 0.8 }} onClick={() => setPlayMode('creator')}>[SKIP TO PLAY OFFLINE]</button>
-            </div>
+            <LoadingScreen 
+              progress={modelProgress.progress} 
+              onSkip={() => setPlayMode('creator')} 
+            />
           )}
 
           {playMode === 'creator' && <CharacterCreator onComplete={handleStartGame} onBack={doRestart} />}
