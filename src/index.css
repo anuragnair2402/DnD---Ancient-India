@@ -603,3 +603,41 @@ body {
   margin: 2px 0;
 }
 
+
+/* ── Foundation V1 additions ─────────────────────────────────── */
+.sanity-gauge {
+  border: 1px solid var(--terminal-dim);
+  background: rgba(20,14,6,0.6);
+  padding: 8px 10px;
+  margin: 8px 10px;
+}
+.entity-panel {
+  margin: 8px 10px;
+  border: 1px solid var(--terminal-dim);
+  background: rgba(20,16,28,0.5);
+  padding: 8px 10px;
+}
+.entity-text {
+  color: #c3b3ff;
+  text-shadow: 0 0 4px rgba(150,120,255,0.5);
+  font-style: italic;
+}
+.codex-content {
+  max-width: 640px;
+  max-height: 84vh;
+  overflow-y: auto;
+}
+.sidebar-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+.map-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.map-canvas-container { flex: 1; min-height: 220px; overflow: hidden; }
+.help-panel { max-height: 200px; overflow-y: auto; }
+.terminal-line { white-space: pre-wrap; }
+.player-input-line { color: #ffe9b0; }
+.glow-text { color: var(--terminal-amber); text-shadow: 0 0 6px var(--terminal-glow); }
+.dim-text { color: var(--terminal-dim); font-style: italic; }
