@@ -239,7 +239,10 @@ function acceptOffer(state, cmd, ctx) {
 
 function declineOffer(state, ctx) {
   if (!ctx.pendingOffer) return { ...emptyResult(), storyText: 'There is no offer to decline.', intents: [] };
-  return { ...emptyResult(), storyText: 'You keep your hands and your secrets. The bargain goes unsealed.', intents: [], tookTurn: true, offerResolved: true };
+  const offer = ctx.pendingOffer;
+  const intents = [];
+  if (offer.flag) intents.push({ type: 'setFlag', flag: offer.flag, value: true });
+  return { ...emptyResult(), storyText: 'You keep your hands and your secrets. The bargain goes unsealed.', intents, tookTurn: true, offerResolved: true };
 }
 
 function withTurn(r) {
