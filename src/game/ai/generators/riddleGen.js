@@ -28,9 +28,9 @@ THE 4 SACRED LAWS OF RIDDLE CRAFT:
 2. PARADOXICAL CLUES:
    - Structure the riddle using 2-3 atmospheric paradoxes (e.g. what it does vs cannot do, what births it vs what kills it).
    - "I have no voice yet I mimic your face...", "I hunger without a mouth, and die when drinking water..."
-3. SINGLE COMMON NOUN TARGET:
-   - The answer must be a single common, tangible noun (e.g. shadow, mirror, fire, river, key, sword, smoke, breath, blood, time).
-   - NEVER use abstract phrases, math, trivia, numbers, or place names.
+3. EXACTLY ONE SINGLE WORD NOUN (CRITICAL):
+   - The "answer" MUST be EXACTLY ONE SINGLE NOUN (e.g. "diamond", "mirror", "flame", "shadow", "sword", "river", "key", "smoke").
+   - Multi-word phrases (e.g. "royal gemstones", "fire ember", "stone wall") are STRICTLY FORBIDDEN and rejected.
 4. EVOCATIVE HINT:
    - The hint must provide conceptual perspective without containing the answer root word.
 
@@ -51,12 +51,19 @@ export function validateGeneratedRiddle(obj, gate) {
   const riddle = (obj.riddle || '').trim();
   const hint = (obj.hint || '').trim();
 
-  // 1. Reject echoed prompt placeholders or template instructions
+  // 1. Reject multi-word answers (answers must be single words e.g. "diamond", "mirror")
+  const cleanAns = answer.replace(/^(a|an|the)\s+/, '').trim();
+  if (cleanAns.includes(' ') || cleanAns.split(/\s+/).length > 1) {
+    console.warn(`[Riddle Rejected]: Multi-word answer "${answer}"`);
+    return null;
+  }
+
+  // 2. Reject echoed prompt placeholders or template instructions
   const banned = ['1-line', 'in-fiction', 'in-fact', 'canonical', 'single noun', 'dark poetry', 'without giving', 'placeholder', '<', '>'];
   if (banned.some(b => hint.toLowerCase().includes(b))) return null;
   if (banned.some(b => riddle.toLowerCase().includes(b))) return null;
   if (riddle.toLowerCase().startsWith('gate:') || (gate && riddle.toLowerCase() === gate.name?.toLowerCase())) return null;
-  if (riddle.length < 20 || hint.length < 5 || answer.length < 2) return null;
+  if (riddle.length < 20 || hint.length < 5 || cleanAns.length < 2) return null;
 
   // 2. Reject if answer or riddle contains digits/numbers
   if (/\d+/.test(answer) || /\d{3,}/.test(riddle) || /\d{3,}/.test(hint)) return null;
