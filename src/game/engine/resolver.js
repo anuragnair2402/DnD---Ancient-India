@@ -54,7 +54,7 @@ export function resolveCommand(state, raw, ctx = {}) {
 
   // ── 0b. Finale choices at the sanctum / resonance ---------------
   const board = ctx.board; // passed when a finale board is active
-  if (board && cmd.kind === COMMAND.SYSTEM) {
+  if (board) {
     const ch = cmd.input;
     if (['banish', 'ally', 'host'].includes(ch)) {
       const ending = resolveEnding(state, ch);
@@ -227,9 +227,7 @@ function systemCommand(state, cmd) {
     case 'restart':
       return { ...emptyResult(), storyText: '', intents: [], tookTurn: false, flashRestart: true };
     default:
-      const fb = roomFallback(state);
-      const text = (a === 'unknown' && cmd.input) ? `[Unrecognized command: "${cmd.input}"]\n\n${fb}` : fb;
-      return { ...emptyResult(), storyText: text, intents: [], tookTurn: false };
+      return { ...emptyResult(), storyText: roomFallback(state), intents: [], tookTurn: false };
   }
 }
 

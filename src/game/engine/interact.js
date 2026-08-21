@@ -5,7 +5,7 @@ import { deepActions } from './actions-deep.js';
 import { genericUse } from './actions.js';
 import { resolveRecipe } from '../world/items.js';
 import { cannedLine } from '../world/entities.js';
-import { randomDecoy, genericExamine, sanityVignette } from '../world/beats.js';
+import { randomDecoy, genericExamine, sanityVignette, randomFallback } from '../world/beats.js';
 import { ventureMadness } from './checks.js';
 import { itemIdFromName } from '../world/items.js';
 import { ROOMS } from '../world/world.js';
@@ -151,11 +151,18 @@ export function resolveTalk(state, cmd, ctx = {}) {
 export function resolveGenerate(state, cmd) {
   const room = state.world.currentRoom;
   const decoys = (state.world.lastSanityTier === 'haunted' || state.world.lastSanityTier === 'fractured');
+  
+  let baseText = genericExamine();
+  if (cmd.action === 'freeform') baseText = randomFallback();
+  if (decoys) baseText = randomDecoy().onExamine;
+  
   return finalize({
-    storyText: decoys ? randomDecoy().onExamine : genericExamine(),
+    storyText: baseText,
     intents: decoys ? [{ type: 'sanity', delta: -5 }] : [],
     aiRequest: {
       type: 'narrate',
+      action: cmd.action,
+      query: cmd.query || cmd.input,
       room,
       roomName: ROOMS[room]?.name,
       target: cmd.target,

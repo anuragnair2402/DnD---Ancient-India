@@ -77,5 +77,5 @@ export function classify(raw) {
     }
   }
 
-  return { kind: COMMAND.SYSTEM, input, action: 'unknown' };
+  return { kind: COMMAND.GENERATE, input, action: 'freeform', query: raw };
 }
