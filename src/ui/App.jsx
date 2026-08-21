@@ -314,22 +314,30 @@ export default function App() {
                   {isGenerating && <div className="terminal-line dim-text">Consulting ancient lore\u2026</div>}
                 </div>
 
-                <form className="input-area-container" onSubmit={handleCommand}>
-                  <span className="input-prompt" style={{ color: activeRiddle ? 'var(--sanity-red)' : pendingOffer ? '#c3e88d' : 'var(--terminal-amber)' }}>
-                    {activeRiddle ? 'RIDDLE>' : pendingOffer ? 'OFFER>' : '>'}
-                  </span>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    className="input-field"
-                    value={inputValue}
-                    onChange={e => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={isGenerating || freezeInput}
-                    placeholder={activeRiddle ? 'Answer the gate\u2019s riddle\u2026' : pendingOffer ? 'ACCEPT or DECLINE\u2026' : 'Type command\u2026 (look, go north, examine drawer, help)'}
-                    autoComplete="off" autoFocus
-                  />
-                </form>
+                <div className="input-box-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                  {pendingOffer && (
+                    <div style={{ padding: '6px 12px', fontSize: '11px', color: '#c3e88d', background: 'rgba(195, 232, 141, 0.08)', borderTop: '1px dashed #c3e88d', borderBottom: '1px dashed #c3e88d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span><strong>BARGAIN OFFER:</strong> Give {pendingOffer.giveName || pendingOffer.given} ➔ Receive {pendingOffer.wantedText || pendingOffer.receiveText || 'Sanity / Favor'}</span>
+                      <span style={{ fontSize: '9px', opacity: 0.8 }}>(Type ACCEPT or DECLINE)</span>
+                    </div>
+                  )}
+                  <form className="input-area-container" onSubmit={handleCommand}>
+                    <span className="input-prompt" style={{ color: activeRiddle ? 'var(--sanity-red)' : pendingOffer ? '#c3e88d' : 'var(--terminal-amber)' }}>
+                      {activeRiddle ? 'RIDDLE>' : pendingOffer ? 'OFFER>' : '>'}
+                    </span>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      className="input-field"
+                      value={inputValue}
+                      onChange={e => setInputValue(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      disabled={isGenerating || freezeInput}
+                      placeholder={activeRiddle ? 'Answer the gate\u2019s riddle\u2026' : pendingOffer ? 'Type ACCEPT or DECLINE\u2026' : 'Type command\u2026 (look, go north, examine drawer, help)'}
+                      autoComplete="off" autoFocus
+                    />
+                  </form>
+                </div>
               </div>
 
               <div className="sidebar-column">

@@ -62,6 +62,13 @@ export class GameSession {
     if (r.pendingOffer) {
       this.pendingOffer = r.pendingOffer;
     }
+    if (r.offerResolved) {
+      this.pendingOffer = null;
+    }
+    // Expire pending bargains if player leaves the room
+    if (r.intents && r.intents.some(i => i.type === 'move')) {
+      this.pendingOffer = null;
+    }
 
     // 3. Apply resolved intents
     if (r.intents && r.intents.length) {
