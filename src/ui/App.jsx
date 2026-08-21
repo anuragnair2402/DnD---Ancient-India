@@ -284,15 +284,17 @@ export default function App() {
             <div className="game-container">
               <div className="main-content-column">
                 <div className="status-header">
-                  <div className="status-header-segment" style={{ flex: 1 }}>
-                    <span>{view?.roomName?.toUpperCase()}</span>
+                  <div className="status-header-segment" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {view?.roomName?.toUpperCase()}
+                    </span>
                   </div>
-                  <div className="status-header-segment">
-                    <span className={view?.player?.sanity < 40 ? 'red-glow-text' : ''}>SANITY {view?.player?.sanity}%</span>
+                  <div className="status-header-segment" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    <span className={view?.player?.sanity < 40 ? 'red-glow-text' : ''}>SANITY {Math.round(view?.player?.sanity ?? 100)}%</span>
                     <span>MOVE {view?.turn}/{view?.maxTurns}</span>
-                    <span>OIL {view?.oil}%</span>
+                    <span>OIL {Math.round(view?.oil ?? 100)}%</span>
                   </div>
-                  <div className="status-header-segment" style={{ gap: '6px' }}>
+                  <div className="status-header-segment" style={{ gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
                     {view?.player?.keys.bronze && <Key size={13} style={{ color: '#cd7f32' }} />}
                     {view?.player?.keys.silver && <Key size={13} style={{ color: '#c0c0c0' }} />}
                     {view?.player?.keys.gold && <Key size={13} style={{ color: '#ffd700' }} />}
