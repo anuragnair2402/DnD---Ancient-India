@@ -230,6 +230,7 @@ class AudioEngine {
       this.ambientOsc.connect(this.ambientGain);
       this.ambientGain.connect(this.ctx.destination);
 
+      this.ambientLfo = lfo;
       lfo.start();
       this.ambientOsc.start();
     } catch (e) {
@@ -239,6 +240,11 @@ class AudioEngine {
 
   stopAmbientHum() {
     try {
+      if (this.ambientLfo) {
+        this.ambientLfo.stop();
+        this.ambientLfo.disconnect();
+        this.ambientLfo = null;
+      }
       if (this.ambientOsc) {
         this.ambientOsc.stop();
         this.ambientOsc.disconnect();
