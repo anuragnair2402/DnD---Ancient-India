@@ -131,7 +131,7 @@ export function resolveTalk(state, cmd, ctx = {}) {
   return finalize({
     storyText: line ? `\u201c${line}\u201d` : '',
     intents: [],
-    aiRequest: { type: 'persona', entity: ent, mood: 'idle', context: { room: state.world.currentRoom, sanity: state.player.stats.sanity, flags: state.player.flags } }
+    aiRequest: { type: 'persona', entity: ent, mood: 'idle', context: { room: state.world.currentRoom, sanity: state.player.stats.sanity, flags: state.player.flags, query: cmd.input } }
   });
 }
 

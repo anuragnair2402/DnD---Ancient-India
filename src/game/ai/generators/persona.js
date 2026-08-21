@@ -12,8 +12,12 @@ export function personaPrompt(entityId, mood, context = {}) {
 
 Return STRICT JSON only:
 {"line":"<1-3 lines of in-character speech, witty and specific, no filler>","mood":"idle|offer|mocked|pleased|wrathful","offer":<null or {"given":"itemId","receive":"itemId|sanity"} >,"reveal":<null or "almanac memory id">}`;
-  const user = `Situation — ${context.situation || 'the player is in your house asking for your attention. You may speak.'}
-Player state: room=${context.room || 'unknown'}, sanity=${context.sanity ?? '?'}.`;
+  
+  const sit = context.query 
+    ? `The player is directly speaking to you. They said: "${context.query}". Answer them.`
+    : (context.situation || 'The player is in your house asking for your attention. You may speak.');
+    
+  const user = `Situation — ${sit}\nPlayer state: room=${context.room || 'unknown'}, sanity=${context.sanity ?? '?'}.`;
   return { sys, user, card };
 }
 

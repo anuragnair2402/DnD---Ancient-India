@@ -219,10 +219,12 @@ export default function App() {
     setFreezeInput(true);
     try {
       const res = await s.submit(cmd);
-      let newLog;
       setLog(prev => {
-        newLog = [...prev, ...res.story];
-        return newLog;
+        const nextLog = [...prev, ...res.story];
+        if (res.playMode !== 'victory' && res.playMode !== 'gameover') {
+          saveRun(s.state, nextLog);
+        }
+        return nextLog;
       });
       if (res.activeRiddle) setActiveRiddle(res.activeRiddle);
       else setActiveRiddle(null);
@@ -239,10 +241,6 @@ export default function App() {
         setPlayMode('gameover');
         audio.playBellToll();
         clearRun();
-      } else {
-        // Wait for state updates to apply, but we can't await setLog easily,
-        // so we use setTimeout to ensure React updates and newLog is ready
-        setTimeout(() => saveRun(s.state, newLog), 0);
       }
       syncView();
     } catch (err) {
