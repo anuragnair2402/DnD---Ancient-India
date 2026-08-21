@@ -80,6 +80,27 @@ export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 1
     return l === currentLayer || (l === 'veil' && canSeeVeil);
   });
 
+  const paddingX = 80;
+  const paddingY = 80;
+  let dynamicViewBox = "-70 -40 340 420";
+
+  if (activeRooms.length > 0) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    activeRooms.forEach(id => {
+      const [x, y] = POS[id] || [0, 0];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    });
+
+    if (minX !== Infinity) {
+      const width = maxX - minX;
+      const height = maxY - minY;
+      dynamicViewBox = `${minX - paddingX} ${minY - paddingY} ${width + 2 * paddingX} ${height + 2 * paddingY}`;
+    }
+  }
+
   const edges = new Set();
   const connections = [];
   activeRooms.forEach(id => {
@@ -105,7 +126,7 @@ export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 1
       <div style={{ position: 'absolute', top: 6, left: 8, fontSize: '12px', color: 'var(--terminal-amber)', textShadow: '0 0 4px var(--terminal-glow)' }}>
         [ {layerNames[currentLayer] ? layerNames[currentLayer].toUpperCase() : 'UNKNOWN'} ]
       </div>
-      <svg viewBox="-70 -40 340 420" style={{ width: '100%', height: '100%', display: 'block' }}>
+      <svg viewBox={dynamicViewBox} style={{ width: '100%', height: '100%', display: 'block' }}>
         {canSeeVeil && (
           <g>
             <text x={-40} y={-28} textAnchor="middle" fontFamily="Press Start 2P, monospace" fontSize={6} fill="#7a5fd0" letterSpacing={1}>THE SIGHT</text>
