@@ -356,7 +356,12 @@ export default function App() {
               <p style={{ maxWidth: '640px', margin: '0 auto 26px', lineHeight: '1.5', fontSize: '17px' }}>
                 A cursed Rajasthani haveli stands forgotten by time. Within its crumbling walls, ghosts whisper ancient secrets, locked gates demand riddles of the soul, and shadows offer bargains you would be wise to read twice. Escape with your sanity, or unravel the covenant that doomed this house forever.
               </p>
-              <button className="retro-btn" style={{ padding: '14px 44px', fontSize: '18px', marginBottom: '16px' }} onClick={handleProceedToCreator}>START ADVENTURE</button>
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '16px' }}>
+                <button className="retro-btn" style={{ padding: '14px 44px', fontSize: '18px' }} onClick={handleProceedToCreator}>START ADVENTURE</button>
+                {hasSavedRun && (
+                  <button className="retro-btn" style={{ padding: '14px 44px', fontSize: '18px' }} onClick={handleResumeGame}>[RESUME SAVED RUN]</button>
+                )}
+              </div>
               <div style={{ fontSize: '12px', color: 'var(--terminal-dim)', marginBottom: '14px' }}>AI Voice: {resolveMode({ geminiApiKey: apiKey, webllmReady: isWebLLMReady() })}</div>
               <div style={{ marginTop: '8px' }}>
                 <button type="button" className="help-btn" style={{ fontSize: '11px', opacity: 0.7 }} onClick={() => setShowSettings(!showSettings)}>
@@ -401,7 +406,7 @@ export default function App() {
                 </div>
                 <div className="modal-footer">
                   <button className="retro-btn" onClick={() => setRestartConfirmOpen(false)}>CANCEL</button>
-                  <button className="retro-btn danger" onClick={() => { setRestartConfirmOpen(false); doRestart(); }}>ABANDON</button>
+                  <button className="retro-btn danger" onClick={() => { setRestartConfirmOpen(false); clearRun(); doRestart(); }}>ABANDON</button>
                 </div>
               </div>
             </div>
