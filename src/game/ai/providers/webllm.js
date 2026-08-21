@@ -36,14 +36,20 @@ export function isWebLLMReady() {
 
 export async function webllmGenerateJson(system, user, opts = {}) {
   if (!mlcEngine) throw new Error('WebLLM engine not initialized.');
-  const resp = await mlcEngine.chat.completions.create({
+  const request = {
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user }
     ],
-    response_format: { type: 'json_object' },
     temperature: opts.temperature ?? 0.7,
     max_tokens: opts.maxTokens ?? 200
-  });
+  };
+  if (opts.schema) {
+    request.response_format = {
+      type: 'json_object',
+      schema: typeof opts.schema === 'string' ? opts.schema : JSON.stringify(opts.schema)
+    };
+  }
+  const resp = await mlcEngine.chat.completions.create(request);
   return parseJson(resp.choices[0]?.message?.content || '{}');
 }

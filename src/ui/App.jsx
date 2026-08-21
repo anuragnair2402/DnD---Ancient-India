@@ -30,6 +30,8 @@ export default function App() {
   const [freezeInput, setFreezeInput] = useState(false);
 
   const [inputValue, setInputValue] = useState('');
+  const [commandHistory, setCommandHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const [helpOpen, setHelpOpen] = useState(false);
   const [codexOpen, setCodexOpen] = useState(false);
   const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
@@ -52,6 +54,23 @@ export default function App() {
     return () => audio.stopAmbientHum();
   }, [playMode, audioMuted]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      const bezel = document.querySelector('.crt-bezel');
+      if (bezel) {
+        const scaleX = window.innerWidth / 1280;
+        const scaleY = window.innerHeight / 800;
+        // Scale up to 1.5x on big screens, but shrink safely on small screens (with 2% margin)
+        const scale = Math.min(scaleX, scaleY, 1.5) * 0.98; 
+        bezel.style.transform = `scale(${scale})`;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // initial scale
+    // Also re-trigger on playMode changes in case DOM reflows
+    return () => window.removeEventListener('resize', handleResize);
+  }, [playMode]);
+
   const saveKey = (k) => { setApiKey(k); localStorage.setItem('gemini_api_key', k); audio.playBleep(660, 0.08); };
 
   const makeDirector = () => createDirector({
@@ -61,6 +80,7 @@ export default function App() {
 
   const handleProceedToCreator = async () => {
     if (isWebGPUSupported() && !isWebLLMReady() && !apiKey) {
+      setPlayMode('loading');
       try {
         await initWebLLMEngine(undefined, (r) => {
           const pct = Math.round((r.progress || 0) * 100);
@@ -124,10 +144,35 @@ export default function App() {
     });
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+      const nextIndex = historyIndex === -1 ? commandHistory.length - 1 : Math.max(0, historyIndex - 1);
+      setHistoryIndex(nextIndex);
+      setInputValue(commandHistory[nextIndex]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex === -1) return;
+      const nextIndex = historyIndex + 1;
+      if (nextIndex >= commandHistory.length) {
+        setHistoryIndex(-1);
+        setInputValue('');
+      } else {
+        setHistoryIndex(nextIndex);
+        setInputValue(commandHistory[nextIndex]);
+      }
+    }
+  };
+
   const handleCommand = async (e, override) => {
     if (e) e.preventDefault();
     const cmd = (override !== undefined ? override : inputValue).trim();
     if (!cmd) return;
+    
+    setCommandHistory(prev => [...prev, cmd]);
+    setHistoryIndex(-1);
+    
     if (override === undefined) setInputValue('');
     audio.playBleep(440, 0.04);
 
@@ -159,7 +204,7 @@ export default function App() {
     } finally {
       setIsGenerating(false);
       setFreezeInput(false);
-      focusInput();
+      setTimeout(() => focusInput(), 0);
     }
   };
 
@@ -232,6 +277,7 @@ export default function App() {
                     className="input-field"
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     disabled={isGenerating || freezeInput}
                     placeholder={activeRiddle ? 'Answer the gate\u2019s riddle\u2026' : pendingOffer ? 'ACCEPT or DECLINE\u2026' : 'Type command\u2026 (look, go north, examine drawer, help)'}
                     autoComplete="off" autoFocus
@@ -261,7 +307,7 @@ export default function App() {
             <div className="api-container">
               <h1 className="creator-title glow-text" style={{ fontSize: '34px', marginBottom: '14px' }}>THE DJINN OF MEWAR</h1>
               <p style={{ maxWidth: '640px', margin: '0 auto 26px', lineHeight: '1.5', fontSize: '17px' }}>
-                A retro horror text-adventure in a cursed Rajasthani haveli, rebuilt with a living Dungeon-Master. The house re-rolls its riddles, whispers through its ghosts, and offers bargains you would be wise to read twice. Escape by gold — or unravel the covenant that cursed it.
+                A cursed Rajasthani haveli stands forgotten by time. Within its crumbling walls, ghosts whisper ancient secrets, locked gates demand riddles of the soul, and shadows offer bargains you would be wise to read twice. Escape with your sanity, or unravel the covenant that doomed this house forever.
               </p>
               <button className="retro-btn" style={{ padding: '14px 44px', fontSize: '18px', marginBottom: '16px' }} onClick={handleProceedToCreator}>START ADVENTURE</button>
               <div style={{ fontSize: '12px', color: 'var(--terminal-dim)', marginBottom: '14px' }}>AI Voice: {resolveMode({ geminiApiKey: apiKey, webllmReady: isWebLLMReady() })}</div>
@@ -276,6 +322,17 @@ export default function App() {
                 )}
               </div>
               <button className="help-btn" style={{ fontSize: '11px', opacity: 0.7, marginTop: '8px' }} onClick={() => setCodexOpen(true)}>[ALMANAC]</button>
+            </div>
+          )}
+
+          {playMode === 'loading' && (
+            <div className="api-container" style={{ alignItems: 'center' }}>
+              <h2 className="creator-title" style={{ fontSize: '24px', marginBottom: '24px' }}>CONJURING THE DJINN...</h2>
+              <div style={{ width: '300px', height: '14px', border: '1px solid var(--terminal-amber)', padding: '2px', marginBottom: '16px' }}>
+                <div style={{ height: '100%', width: `${modelProgress.progress}%`, backgroundColor: 'var(--terminal-amber)', transition: 'width 0.2s' }} />
+              </div>
+              <p style={{ color: 'var(--terminal-dim)', fontSize: '14px', minHeight: '40px', textAlign: 'center' }}>{modelProgress.text}</p>
+              <button className="help-btn" style={{ marginTop: '16px', opacity: 0.8 }} onClick={() => setPlayMode('creator')}>[SKIP TO PLAY OFFLINE]</button>
             </div>
           )}
 

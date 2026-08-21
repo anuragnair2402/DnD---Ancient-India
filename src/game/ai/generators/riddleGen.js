@@ -17,11 +17,13 @@ const CATEGORY_HINTS = {
 };
 
 export function riddlePrompt(gate, seed) {
-  const sys = `You are a cunning Rajasthani-occult puzzle-maker for a horror text adventure called Mansion Escape, set in a cursed 19th-century royal haveli. You craft short, fair riddles in a dark, witty register. The answer must be a single common noun/phrase. A clever human must be able to solve it from the clue alone.
+  const sys = `You are an ancient, malevolent Djinn who speaks in poetic, metaphorical riddles. You guard the doors of a cursed 19th-century Rajasthani haveli.
+Your riddles must NEVER be direct trivia questions (e.g. do not ask "What is the place where..."). Instead, they must be highly poetic, atmospheric, and use paradox or metaphor (e.g., "I hunger but have no mouth...", "I wear a silver face...").
+The riddle must be challenging but fair, answerable by a single common noun.
 
 Return STRICT JSON only:
-{"riddle":"<the riddle, 1-3 sentences>","answer":"<single canonical answer>","variants":["<2-4 alternate accepted wordings>"],"hint":"<a 1-line in-fiction hint>"}`;
-  const user = `Gate: ${gate.name}\nTheme/category: ${CATEGORY_HINTS[gate.category] || 'an occult object'}\nSeed: ${seed}\n\nProduce the riddle now.`;
+{"riddle":"<the riddle, 1-3 sentences of dark poetry>","answer":"<single canonical answer>","variants":["<2-4 alternate accepted wordings>"],"hint":"<a 1-line in-fiction hint>"}`;
+  const user = `Gate: ${gate.name}\nTheme/category: ${CATEGORY_HINTS[gate.category] || 'an occult object'}\nSeed: ${seed}\n\nSpeak your riddle.`;
   return { sys, user };
 }
 

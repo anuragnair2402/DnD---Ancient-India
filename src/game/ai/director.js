@@ -19,9 +19,16 @@ export function createDirector(config = {}, opts = {}) {
   const geminiKey = (config && config.geminiApiKey) || '';
 
   async function llm(system, user, o = {}) {
-    if (mode === 'gemini' && geminiKey) return geminiGenerateJson(geminiKey, system, user, o);
-    if (mode === 'webllm') return webllmGenerateJson(system, user, o);
-    throw new Error('no online provider');
+    const timeoutMs = o.timeoutMs ?? 15000;
+    const callPromise = (async () => {
+      if (mode === 'gemini' && geminiKey) return geminiGenerateJson(geminiKey, system, user, o);
+      if (mode === 'webllm') return webllmGenerateJson(system, user, o);
+      throw new Error('no online provider');
+    })();
+    return Promise.race([
+      callPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LLM call timed out')), timeoutMs))
+    ]);
   }
 
   const hooks = {

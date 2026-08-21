@@ -67,10 +67,9 @@ body {
 /* CRT Monitor Bezel/Chassis */
 .crt-bezel {
   position: relative;
-  width: 100%;
-  height: 100%;
-  max-width: 1280px;
-  max-height: 800px;
+  width: 1280px;
+  height: 800px;
+  flex-shrink: 0;
   border: 16px solid #1a1510;
   border-radius: 20px;
   background-color: var(--bg-deep);
@@ -81,6 +80,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transform-origin: center center;
 }
 
 /* Radial Vignette & Glass Curvature Shadow */

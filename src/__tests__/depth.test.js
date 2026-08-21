@@ -72,4 +72,12 @@ describe('The deeper covenant — full Resonance playthrough (offline)', () => {
     expect(out.playMode).toBe('victory');
     expect(out.finale.key).toBe('banished');
   });
+
+  it('parses JSON with markdown fences or surrounding noise cleanly', () => {
+    const { parseJson } = require('../game/ai/providers/gemini.js');
+    expect(parseJson('{"riddle": "hello"}')).toEqual({ riddle: 'hello' });
+    expect(parseJson('```json\n{"riddle": "hello"}\n```')).toEqual({ riddle: 'hello' });
+    expect(parseJson('Here is the output: {"riddle": "hello"} Hope it helps!')).toEqual({ riddle: 'hello' });
+  });
 });
+

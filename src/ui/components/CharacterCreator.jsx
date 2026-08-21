@@ -32,10 +32,10 @@ export default function CharacterCreator({ onComplete, onBack }) {
 
   const submit = (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const finalName = name.trim() || 'Wanderer';
     const starter = CLASS_STARTERS[selected.id] || CLASS_STARTERS.Mercenary;
     onComplete({
-      name: name.trim(),
+      name: finalName,
       classId: selected.id,
       stats: { sanity: 100, maxSanity: 100, resolve: starter.resolve, perception: starter.perception, courage: starter.courage, terror: starter.terror },
       inventory: [...starter.items],

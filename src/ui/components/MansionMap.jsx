@@ -53,7 +53,6 @@ function short(name) {
 function Connector({ rooms, current, unlockedGates, tier }) {
   // draw a line between two rooms if both are visible
   const [a, b] = rooms;
-  if (layerOf(a) !== layerOf(b)) return null;
   const [ax, ay] = POS[a] || [0, 0]; const [bx, by] = POS[b] || [0, 0];
   const gateKey = Object.keys(GATES).find(k => {
     const [f, t] = k.split('->');
@@ -70,30 +69,59 @@ function Connector({ rooms, current, unlockedGates, tier }) {
   return <g>{c}{dot}</g>;
 }
 
-export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 100, doors = {}, layer }) {
+export default function MansionMap({ currentRoom, unlockedGates = {}, sanity = 100, doors = {} }) {
   const tier = sanityTierOf(sanity);
-  const layers = { ground: ['Ground'], upper: ['Upper'], under: ['Under'], veil: ['The Sight'] };
+  const currentLayer = currentRoom ? layerOf(currentRoom) : 'ground';
+  const canSeeVeil = tier === 'haunted' || tier === 'fractured';
+  
+  // Filter rooms to only those on the current floor, plus the Veil if sanity is low
+  const activeRooms = Object.keys(POS).filter(id => {
+    const l = layerOf(id);
+    return l === currentLayer || (l === 'veil' && canSeeVeil);
+  });
+
+  const edges = new Set();
+  const connections = [];
+  activeRooms.forEach(id => {
+    const room = ROOMS[id];
+    if (room && room.exits) {
+      Object.values(room.exits).forEach(targetId => {
+        // Only draw connections if both rooms are currently visible on this floor map
+        if (activeRooms.includes(targetId)) {
+          const edgeId = [id, targetId].sort().join('--');
+          if (!edges.has(edgeId)) {
+            edges.add(edgeId);
+            connections.push([id, targetId]);
+          }
+        }
+      });
+    }
+  });
+
+  const layerNames = { ground: 'Ground Floor', upper: 'Upper Floor', under: 'Undercroft', veil: 'The Sight' };
+
   return (
-    <svg viewBox="-70 -40 340 420" style={{ width: '100%', height: '100%', display: 'block' }}>
-      {/* veil corridor ribbon */}
-      <text x={-40} y={-28} textAnchor="middle" fontFamily="Press Start 2P, monospace" fontSize={6} fill="#7a5fd0" letterSpacing={1}>THE SIGHT</text>
-      <line x1={-40} y1={-20} x2={-40} y2={230} stroke="#2a2240" strokeWidth={1} strokeDasharray="3 3" />
-      <line x1={165} y1={-20} x2={165} y2={230} stroke="#2a2240" strokeWidth={1} strokeDasharray="3 3" />
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 6, left: 8, fontSize: '12px', color: 'var(--terminal-amber)', textShadow: '0 0 4px var(--terminal-glow)' }}>
+        [ {layerNames[currentLayer] ? layerNames[currentLayer].toUpperCase() : 'UNKNOWN'} ]
+      </div>
+      <svg viewBox="-70 -40 340 420" style={{ width: '100%', height: '100%', display: 'block' }}>
+        {canSeeVeil && (
+          <g>
+            <text x={-40} y={-28} textAnchor="middle" fontFamily="Press Start 2P, monospace" fontSize={6} fill="#7a5fd0" letterSpacing={1}>THE SIGHT</text>
+            <line x1={-40} y1={-20} x2={-40} y2={230} stroke="#2a2240" strokeWidth={1} strokeDasharray="3 3" />
+            <line x1={165} y1={-20} x2={165} y2={230} stroke="#2a2240" strokeWidth={1} strokeDasharray="3 3" />
+          </g>
+        )}
 
-      {Object.keys(POS).map(id => <Connector key={'c' + id} rooms={[id, nearestNeighbour(id)]} current={currentRoom} unlockedGates={unlockedGates} tier={tier} />)}
+        {connections.map(([a, b]) => (
+          <Connector key={`${a}-${b}`} rooms={[a, b]} current={currentRoom} unlockedGates={unlockedGates} tier={tier} />
+        ))}
 
-      {Object.keys(POS).map(id => (
-        <RoomBox key={id} id={id} current={currentRoom} tier={tier} doors={doors} />
-      ))}
-    </svg>
+        {activeRooms.map(id => (
+          <RoomBox key={id} id={id} current={currentRoom} tier={tier} doors={doors} />
+        ))}
+      </svg>
+    </div>
   );
-}
-
-// helper: a room's nearest "connected" partner minus both rooms for an edge line
-function nearestNeighbour(id) {
-  const room = ROOMS[id];
-  if (!room) return id === 'front_foyer' ? 'chowk_courtyard' : 'chowk_courtyard';
-  const ex = Object.values(room.exits || {});
-  if (ex[0]) return ex[0];
-  return 'chowk_courtyard';
 }
