@@ -185,7 +185,30 @@ export class GameSession {
     const gate = this.activeRiddle;
     const key = `${gate.from}->${gate.to}`;
     const inst = this.state.world.riddleInstances[key];
+    const trimmed = (raw || '').trim().toLowerCase();
     const lexical = checkRiddleAnswer(inst, raw);
+
+    // If the player wants to step back or run another command (movement, system, inventory, etc.)
+    if (!lexical.correct) {
+      const exitWords = ['leave', 'back', 'cancel', 'exit', 'step back', 'no', 'stop'];
+      const isSysOrMove = ['look', 'l', 'inventory', 'i', 'stats', 'help', 'almanac', 'journal', 'meditate', 'pray'].includes(trimmed) ||
+        ['south', 's', 'west', 'w', 'east', 'e', 'north', 'n', 'up', 'u', 'down', 'd'].includes(trimmed);
+
+      if (exitWords.includes(trimmed) || isSysOrMove) {
+        this.activeRiddle = null;
+        this.push('narrative', 'You step back from the glowing ward and return your attention to the room.');
+        if (trimmed !== 'leave' && trimmed !== 'back' && trimmed !== 'cancel') {
+          // Resolve the command normally
+          const r = this.run(raw);
+          if (r.storyText) this.push('narrative', r.storyText);
+          if (r.intents && r.intents.length) {
+            this.state = applyIntents(this.state, r.intents).state;
+          }
+          if (r.tookTurn) this.applyEndOfTurn(r);
+        }
+        return;
+      }
+    }
 
     // Semantic judge for alternate-but-legit answers ("two different answers")
     if (!lexical.correct && this.hooks.riddleJudge) {
