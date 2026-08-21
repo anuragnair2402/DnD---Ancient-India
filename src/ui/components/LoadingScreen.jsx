@@ -36,26 +36,65 @@ export default function LoadingScreen({ progress = 0, onSkip }) {
         setLoreIndex((prev) => (prev + 1) % HAVELI_LORE.length);
         setFade(true);
       }, 300);
-    }, 3800);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
   const pct = Math.min(100, Math.max(0, Math.round(progress)));
 
   return (
-    <div className="api-container loading-screen-container" style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center', padding: '24px 20px' }}>
-      <div className="loading-header" style={{ marginBottom: '22px' }}>
-        <h2 className="creator-title glow-text" style={{ fontSize: '26px', marginBottom: '8px', letterSpacing: '2px' }}>
+    <div 
+      className="api-container loading-screen-container" 
+      style={{ 
+        maxWidth: '620px', 
+        margin: '0 auto', 
+        textAlign: 'center', 
+        padding: '32px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}
+    >
+      {/* Title & Architecture Subtitle */}
+      <div className="loading-header" style={{ marginBottom: '28px' }}>
+        <h2 
+          className="creator-title glow-text" 
+          style={{ fontSize: '30px', marginBottom: '10px', letterSpacing: '3px' }}
+        >
           CONJURING THE DJINN
         </h2>
-        <div style={{ fontSize: '11px', color: 'var(--terminal-dim)', fontFamily: 'var(--font-pixel)', letterSpacing: '1px' }}>
-          [ ULTRA-LIGHT QWEN 2.5 NEURAL CORE • WEBGPU IN-BROWSER SYNTHESIS ]
+        <div 
+          style={{ 
+            fontSize: '11px', 
+            color: 'var(--terminal-dim)', 
+            fontFamily: 'var(--font-pixel)', 
+            letterSpacing: '1.5px',
+            whiteSpace: 'nowrap' 
+          }}
+        >
+          [ ULTRA-LIGHT QWEN 2.5 • IN-BROWSER WEBGPU ]
         </div>
       </div>
 
-      {/* Living Shimmer Progress Bar */}
-      <div className="living-progress-wrapper" style={{ margin: '0 auto 16px', maxWidth: '460px' }}>
-        <div className="living-progress-frame">
+      {/* Living Shimmer Progress Gauge */}
+      <div className="living-progress-wrapper" style={{ width: '100%', maxWidth: '520px', marginBottom: '26px' }}>
+        <div 
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '8px', 
+            fontSize: '11px', 
+            fontFamily: 'var(--font-pixel)', 
+            color: 'var(--terminal-amber)',
+            letterSpacing: '1px'
+          }}
+        >
+          <span>CONJURATION PROGRESS</span>
+          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#ffea53' }}>{pct}%</span>
+        </div>
+
+        <div className="living-progress-frame" style={{ height: '20px' }}>
           <div 
             className="living-progress-bar" 
             style={{ width: `${pct}%` }}
@@ -63,25 +102,57 @@ export default function LoadingScreen({ progress = 0, onSkip }) {
             <div className="energy-sweep" />
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '11px', fontFamily: 'var(--font-pixel)', color: 'var(--terminal-amber)' }}>
-          <span>{getOccultPhase(pct)}</span>
-          <span style={{ fontWeight: 'bold' }}>{pct}%</span>
+
+        {/* Dedicated Phase Caption on its own clean line */}
+        <div 
+          style={{ 
+            marginTop: '10px', 
+            fontSize: '13px', 
+            color: '#ffea53', 
+            fontStyle: 'italic', 
+            minHeight: '22px', 
+            textAlign: 'center',
+            letterSpacing: '0.3px'
+          }}
+        >
+          {getOccultPhase(pct)}
         </div>
       </div>
 
-      {/* Whimsical Tales of the Haveli Ticker */}
-      <div className="lore-ticker-card" style={{ marginTop: '20px', minHeight: '88px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ fontSize: '10px', color: '#ffd27d', fontFamily: 'var(--font-pixel)', marginBottom: '6px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+      {/* Whimsical Tales of the Haveli Ticker Card */}
+      <div 
+        className="lore-ticker-card" 
+        style={{ 
+          width: '100%',
+          maxWidth: '520px', 
+          minHeight: '105px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          justifyContent: 'center',
+          padding: '16px 22px',
+          marginBottom: '28px'
+        }}
+      >
+        <div 
+          style={{ 
+            fontSize: '10px', 
+            color: '#ffd27d', 
+            fontFamily: 'var(--font-pixel)', 
+            marginBottom: '8px', 
+            letterSpacing: '1.5px', 
+            textTransform: 'uppercase' 
+          }}
+        >
           ✦ Whispers of Mewar ✦
         </div>
         <p 
           style={{ 
             fontSize: '14px', 
             color: 'var(--terminal-dim)', 
-            lineHeight: '1.45', 
+            lineHeight: '1.5', 
             fontStyle: 'italic', 
             margin: '0 auto',
-            maxWidth: '520px',
+            maxWidth: '470px',
             transition: 'opacity 0.3s ease, transform 0.3s ease',
             opacity: fade ? 1 : 0,
             transform: fade ? 'translateY(0)' : 'translateY(4px)'
@@ -92,16 +163,23 @@ export default function LoadingScreen({ progress = 0, onSkip }) {
       </div>
 
       {/* Play Offline Skip Fallback */}
-      <div style={{ marginTop: '24px' }}>
+      <div>
         <button 
           type="button" 
           className="retro-btn" 
-          style={{ padding: '8px 24px', fontSize: '13px', opacity: 0.85 }} 
+          style={{ padding: '10px 28px', fontSize: '13px', letterSpacing: '1px' }} 
           onClick={onSkip}
         >
           [SKIP TO PLAY OFFLINE (INSTANT)]
         </button>
-        <div style={{ fontSize: '10px', color: 'var(--terminal-dim)', marginTop: '8px' }}>
+        <div 
+          style={{ 
+            fontSize: '11px', 
+            color: 'var(--terminal-dim)', 
+            marginTop: '10px',
+            letterSpacing: '0.3px'
+          }}
+        >
           Full deterministic campaign with handcrafted riddles is always available instantly.
         </div>
       </div>
