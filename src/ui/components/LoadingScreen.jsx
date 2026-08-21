@@ -72,7 +72,7 @@ export default function LoadingScreen({ progress = 0, onSkip }) {
             whiteSpace: 'nowrap' 
           }}
         >
-          [ ULTRA-LIGHT QWEN 2.5 • IN-BROWSER WEBGPU ]
+          [ LOCAL NEURAL ENGINE • WEBGPU ACCELERATED ]
         </div>
       </div>
 

@@ -228,7 +228,7 @@ function systemCommand(state, cmd) {
       return { ...emptyResult(), storyText: '', intents: [], tookTurn: false, flashRestart: true };
     default:
       const fb = roomFallback(state);
-      const text = (a === 'unknown' && cmd.input) ? `Unrecognized input "${cmd.input}".\n\n${fb}` : fb;
+      const text = (a === 'unknown' && cmd.input) ? `[Unrecognized command: "${cmd.input}"]\n\n${fb}` : fb;
       return { ...emptyResult(), storyText: text, intents: [], tookTurn: false };
   }
 }
