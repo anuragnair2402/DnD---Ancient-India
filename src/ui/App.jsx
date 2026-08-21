@@ -73,6 +73,18 @@ export default function App() {
 
   const saveKey = (k) => { setApiKey(k); localStorage.setItem('gemini_api_key', k); audio.playBleep(660, 0.08); };
 
+  const saveRun = (state, logData) => {
+    localStorage.setItem('active_run_state', JSON.stringify(state));
+    localStorage.setItem('active_run_log', JSON.stringify(logData));
+  };
+
+  const clearRun = () => {
+    localStorage.removeItem('active_run_state');
+    localStorage.removeItem('active_run_log');
+  };
+
+  const hasSavedRun = Boolean(localStorage.getItem('active_run_state') && localStorage.getItem('active_run_log'));
+
   const makeDirector = () => createDirector({
     geminiApiKey: apiKey,
     webllmReady: isWebLLMReady()
@@ -92,6 +104,29 @@ export default function App() {
     audio.playItemAcquired();
   };
 
+  const handleResumeGame = () => {
+    const savedStateStr = localStorage.getItem('active_run_state');
+    const savedLogStr = localStorage.getItem('active_run_log');
+    if (!savedStateStr || !savedLogStr) return;
+    try {
+      const savedState = JSON.parse(savedStateStr);
+      const savedLog = JSON.parse(savedLogStr);
+      
+      const director = makeDirector();
+      const session = new GameSession(savedState, director.hooks);
+      sessionRef.current = session;
+      setLog(savedLog);
+      setActiveRiddle(null); setPendingOffer(null); setFinale(null); setGameOverCause('');
+      syncView();
+      setPlayMode('playing');
+      setFreezeInput(false);
+      audio.playItemAcquired();
+    } catch (e) {
+      console.error('Failed to resume run:', e);
+      clearRun();
+    }
+  };
+
   const handleStartGame = (creatorData) => {
     const st = createInitialState();
     st.player.name = creatorData.name;
@@ -109,10 +144,12 @@ export default function App() {
 
     setActiveRiddle(null); setPendingOffer(null); setFinale(null); setGameOverCause('');
     const intro = `THE DJINN OF MEWAR\n\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\`\nYou slip through a high, broken stone jharokha and drop onto the foyer floor. Behind you, the iron-studded gates slam shut \u2014 brass lock snapping cold. You are trapped in the haveli of Thakur Vikram Singh.\n\nThe house is alive, and something in it has been waiting to be asked a question it will enjoy answering.\n\n${ROOMS['front_foyer'].description}\n\n(Type "look", go north, examine the drawer, or meditate to begin.)`;
-    setLog([{ type: 'system', text: intro }]);
+    const introLog = [{ type: 'system', text: intro }];
+    setLog(introLog);
     syncView();
     setPlayMode('playing');
     audio.playCreak();
+    saveRun(session.state, introLog);
   };
 
   const syncView = () => {
@@ -182,7 +219,11 @@ export default function App() {
     setFreezeInput(true);
     try {
       const res = await s.submit(cmd);
-      setLog(prev => [...prev, ...res.story]);
+      let newLog;
+      setLog(prev => {
+        newLog = [...prev, ...res.story];
+        return newLog;
+      });
       if (res.activeRiddle) setActiveRiddle(res.activeRiddle);
       else setActiveRiddle(null);
       if (res.pendingOffer) setPendingOffer(res.pendingOffer);
@@ -192,10 +233,16 @@ export default function App() {
         recordEnding(res.finale.key);
         setPlayMode('victory');
         audio.playBellToll();
+        clearRun();
       } else if (res.playMode === 'gameover') {
         setGameOverCause(res.cause || 'sanity');
         setPlayMode('gameover');
         audio.playBellToll();
+        clearRun();
+      } else {
+        // Wait for state updates to apply, but we can't await setLog easily,
+        // so we use setTimeout to ensure React updates and newLog is ready
+        setTimeout(() => saveRun(s.state, newLog), 0);
       }
       syncView();
     } catch (err) {
@@ -232,7 +279,7 @@ export default function App() {
   return (
     <div className="crt-container">
       <div className="crt-bezel">
-        <div className="crt-screen">
+        <div className={`crt-screen ${view?.player?.sanity <= 20 ? 'sanity-fractured' : view?.player?.sanity <= 45 ? 'sanity-haunted' : ''}`.trim()}>
           <div className="crt-scanlines" />
 
           {playMode === 'playing' && (

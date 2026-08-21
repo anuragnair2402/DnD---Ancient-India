@@ -641,3 +641,38 @@ body {
 .player-input-line { color: #ffe9b0; }
 .glow-text { color: var(--terminal-amber); text-shadow: 0 0 6px var(--terminal-glow); }
 .dim-text { color: var(--terminal-dim); font-style: italic; }
+
+/* Sanity Visual FX */
+.sanity-haunted {
+  box-shadow: inset 0 0 50px rgba(180, 0, 0, 0.15);
+  animation: crt-flicker 0.1s infinite;
+}
+.sanity-haunted .glow-text,
+.sanity-haunted .terminal-line,
+.sanity-haunted .room-label,
+.sanity-haunted span {
+  text-shadow: 
+    0 0 4px var(--terminal-glow),
+    0 0 12px var(--terminal-glow),
+    1px 0px 1px rgba(255, 0, 0, 0.5), 
+    -1px 0px 1px rgba(0, 0, 255, 0.5) !important;
+}
+
+.sanity-fractured {
+  box-shadow: inset 0 0 100px rgba(220, 0, 0, 0.3);
+  animation: crt-flicker 0.05s infinite, sanity-pulse 2s infinite alternate;
+}
+.sanity-fractured .glow-text,
+.sanity-fractured .terminal-line,
+.sanity-fractured .room-label,
+.sanity-fractured span {
+  text-shadow: 
+    0 0 4px var(--terminal-glow),
+    0 0 12px var(--terminal-glow),
+    2px 0px 2px rgba(255, 0, 0, 0.8), 
+    -2px 0px 2px rgba(0, 0, 255, 0.8) !important;
+}
+@keyframes sanity-pulse {
+  0% { box-shadow: inset 0 0 80px rgba(200, 0, 0, 0.2); filter: blur(0px); }
+  100% { box-shadow: inset 0 0 150px rgba(255, 0, 0, 0.5); filter: blur(0.8px); }
+}
