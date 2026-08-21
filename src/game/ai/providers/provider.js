@@ -8,5 +8,5 @@ export function resolveMode(config) {
 }
 
 export function providerLabel(mode) {
-  return { gemini: 'Gemini (cloud)', webllm: 'In-browser WebLLM', offline: 'Offline (built-in)' }[mode] || 'Offline';
+  return { gemini: 'Gemini (cloud)', webllm: 'Gemma 2 (in-browser WebGPU)', offline: 'Offline (built-in)' }[mode] || 'Offline';
 }
