@@ -2,7 +2,7 @@
 // The engine is created once and reused; generateJson mirrors the Gemini contract.
 import { parseJson } from './gemini.js';
 
-export const DEFAULT_LOCAL_MODEL = 'gemma-2-2b-it-q4f16_1-MLC';
+export const DEFAULT_LOCAL_MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
 
 let mlcEngine = null;
 let isInitializing = false;

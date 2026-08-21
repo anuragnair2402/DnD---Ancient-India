@@ -49,7 +49,7 @@ export default function LoadingScreen({ progress = 0, onSkip }) {
           CONJURING THE DJINN
         </h2>
         <div style={{ fontSize: '11px', color: 'var(--terminal-dim)', fontFamily: 'var(--font-pixel)', letterSpacing: '1px' }}>
-          [ GEMMA 2 NEURAL CORE • WEBGPU IN-BROWSER SYNTHESIS ]
+          [ ULTRA-LIGHT QWEN 2.5 NEURAL CORE • WEBGPU IN-BROWSER SYNTHESIS ]
         </div>
       </div>
 
