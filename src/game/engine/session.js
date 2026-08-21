@@ -240,16 +240,6 @@ export class GameSession {
     inst.wrongAttempts = (inst.wrongAttempts || 0) + 1;
     const attempts = inst.wrongAttempts;
 
-    if (attempts >= 4) {
-      // 4th failure: Ward fractures and forces open at a sanity cost
-      this.state.player.stats.sanity = Math.max(0, this.state.player.stats.sanity - 10);
-      this.state.world.turn += 1;
-      const ansUpper = (inst.answer || '').toUpperCase();
-      this.push('narrative', `[WARD FRACTURED]\nThe ward's binding shatters from repeated strain! With a dying wail, the spirit gives up its secret: "${ansUpper}!"\n(The gate forces open — Sanity -10)\n\n${gate.successText || ''}`);
-      this.unlockAndEnter(gate, key);
-      return;
-    }
-
     this.state.player.stats.sanity = Math.max(0, this.state.player.stats.sanity - 5);
     this.state.world.turn += 1;
     const clue = formatProgressiveClue(inst, attempts);
@@ -336,11 +326,21 @@ function formatProgressiveClue(inst, attempts) {
     return `Hint: ${hintText}\nGhostly Whisper: "The word has ${ans.length} letters: [ ${masked} ]"`;
   }
 
-  // Attempt 3: Reveal first/last letters and vowels
+  if (attempts === 3) {
+    // Reveal first/last letters and vowels
+    const masked = ans.split('').map((ch, idx) => {
+      if (idx === 0 || idx === ans.length - 1 || 'aeiou'.includes(ch)) return ch.toUpperCase();
+      if (ch === ' ') return ' ';
+      return '_';
+    }).join(' ');
+    return `Hint: The ward begins to shudder as your willpower strains its magic.\nGhostly Whisper: "Speak the word: [ ${masked} ]"`;
+  }
+
+  // Attempt 4+: The spirit is almost exhausted; reveals all but 1 character
   const masked = ans.split('').map((ch, idx) => {
-    if (idx === 0 || idx === ans.length - 1 || 'aeiou'.includes(ch)) return ch.toUpperCase();
+    if (idx === ans.length - 2 && ans.length > 2) return '_';
     if (ch === ' ') return ' ';
-    return '_';
+    return ch.toUpperCase();
   }).join(' ');
-  return `Hint: The ward begins to shudder as your willpower strains its magic.\nGhostly Whisper: "Speak the word: [ ${masked} ]"`;
+  return `Hint: The ward's power has worn thin against your persistence.\nGhostly Whisper: "Speak the word plainly: [ ${masked} ]"`;
 }
