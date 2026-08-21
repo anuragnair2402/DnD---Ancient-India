@@ -37,9 +37,9 @@ export function createDirector(config = {}, opts = {}) {
     async riddleFor(gate, seed) {
       if (mode === 'offline') return curatedFallback(gate, seed);
       try {
-        const { sys, user } = riddlePrompt(gate, seed);
+        const { sys, user } = riddlePrompt(gate);
         const obj = await llm(sys, user, { temperature: 0.9, maxTokens: 300 });
-        const riddle = validateGeneratedRiddle(obj);
+        const riddle = validateGeneratedRiddle(obj, gate);
         if (!riddle) return curatedFallback(gate, seed);
         // Judge-pass A (canonical): independent fairness check; on any doubt, curated.
         const fairQ = fairnessPrompt(riddle);

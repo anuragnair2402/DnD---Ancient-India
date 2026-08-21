@@ -16,28 +16,44 @@ const CATEGORY_HINTS = {
   diamond: 'a great jewel'
 };
 
-export function riddlePrompt(gate, seed) {
-  const sys = `You are an ancient, malevolent Djinn who speaks in poetic, metaphorical riddles. You guard the doors of a cursed 19th-century Rajasthani haveli.
-Your riddles must NEVER be direct trivia questions (e.g. do not ask "What is the place where..."), and NEVER number/math puzzles or ciphers.
-Instead, they must be highly poetic, atmospheric, and use paradox or metaphor about real tangible objects or concepts (e.g., shadow, mirror, fire, river, key, smoke, blood, time).
-The answer must be a single common noun/concept (never numbers or digits).
-
-Return STRICT JSON only:
-{"riddle":"<the riddle, 1-3 sentences of dark poetry>","answer":"<single canonical noun>","variants":["<2-4 alternate accepted wordings>"],"hint":"<a 1-line in-fiction hint without giving the exact word>"}`;
-  const user = `Gate: ${gate.name}\nTheme/focus: ${CATEGORY_HINTS[gate.category] || 'an occult object'}\n\nSpeak your riddle now.`;
+export function riddlePrompt(gate) {
+  const sys = `You are an ancient Djinn guarding a cursed Rajasthani haveli. You speak only in atmospheric, poetic riddles.
+Rules:
+1. Write a 1-3 line atmospheric riddle in dark poetry.
+2. The answer must be a single common noun (e.g. shadow, mirror, fire, river, key, smoke, blood, time).
+3. Do NOT include numbers, trivia, or placeholders.
+4. Output strict JSON in this exact structure:
+{
+  "riddle": "I have no voice, yet I mimic your face in the glass. When the light fades, I vanish. What am I?",
+  "answer": "mirror",
+  "variants": ["a mirror", "the mirror", "glass", "looking glass"],
+  "hint": "Think of what decorates the vanity tables of the haveli."
+}`;
+  const user = `Create a riddle for the ${gate.name}. Theme: ${CATEGORY_HINTS[gate.category] || 'an occult relic'}.\n\nProduce your JSON riddle now.`;
   return { sys, user };
 }
 
-export function validateGeneratedRiddle(obj) {
+export function validateGeneratedRiddle(obj, gate) {
   if (!validators.riddle(obj)) return null;
   const answer = (obj.answer || '').trim().toLowerCase();
-  // Reject if answer or riddle contains digits/numbers (hallucinated seeds/math)
-  if (/\d+/.test(answer) || /\d{3,}/.test(obj.riddle) || /\d{3,}/.test(obj.hint)) return null;
+  const riddle = (obj.riddle || '').trim();
+  const hint = (obj.hint || '').trim();
+
+  // Reject echoed prompt placeholders or template instructions
+  const banned = ['1-line', 'in-fiction', 'in-fact', 'canonical', 'single noun', 'dark poetry', 'without giving', 'placeholder', '<', '>'];
+  if (banned.some(b => hint.toLowerCase().includes(b))) return null;
+  if (banned.some(b => riddle.toLowerCase().includes(b))) return null;
+  if (riddle.toLowerCase().startsWith('gate:') || (gate && riddle.toLowerCase() === gate.name?.toLowerCase())) return null;
+  if (riddle.length < 20 || hint.length < 5 || answer.length < 2) return null;
+
+  // Reject if answer or riddle contains digits/numbers
+  if (/\d+/.test(answer) || /\d{3,}/.test(riddle) || /\d{3,}/.test(hint)) return null;
+
   return {
-    riddle: obj.riddle,
+    riddle,
     answer,
     variants: (obj.variants || []).map(v => String(v).toLowerCase()).slice(0, 5),
-    hint: obj.hint
+    hint
   };
 }
 
