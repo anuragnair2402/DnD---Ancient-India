@@ -207,9 +207,23 @@ export class GameSession {
     }
 
     // wrong answer
+    inst.wrongAttempts = (inst.wrongAttempts || 0) + 1;
+    const attempts = inst.wrongAttempts;
+
+    if (attempts >= 4) {
+      // 4th failure: Ward fractures and forces open at a sanity cost
+      this.state.player.stats.sanity = Math.max(0, this.state.player.stats.sanity - 10);
+      this.state.world.turn += 1;
+      const ansUpper = (inst.answer || '').toUpperCase();
+      this.push('narrative', `[WARD FRACTURED]\nThe ward's binding shatters from repeated strain! With a dying wail, the spirit gives up its secret: "${ansUpper}!"\n(The gate forces open — Sanity -10)\n\n${gate.successText || ''}`);
+      this.unlockAndEnter(gate, key);
+      return;
+    }
+
     this.state.player.stats.sanity = Math.max(0, this.state.player.stats.sanity - 5);
     this.state.world.turn += 1;
-    this.push('narrative', `[INCORRECT ANSWER]\nThe spectral ward pulses with a harsh, chilling light. A voice whispers: "Wrong, mortal." (Sanity -5)\n\nHint: ${inst.hint}\nAnswer again, or type any other command to leave the gate be.`);
+    const clue = formatProgressiveClue(inst, attempts);
+    this.push('narrative', `[INCORRECT ANSWER]\nThe spectral ward pulses with a harsh, chilling light. A voice whispers: "Wrong, mortal." (Sanity -5)\n\n${clue}\n\n(Answer again, or type any other command to leave the gate be.)`);
   }
 
   unlockAndEnter(gate, key) {
@@ -267,5 +281,36 @@ function entityName(id) {
 }
 
 async function safe(p) {
-  try { return await p; } catch (e) { return null; }
+  return Promise.resolve(p).catch(e => {
+    console.warn('ai hook failed:', e);
+    return null;
+  });
+}
+
+function formatProgressiveClue(inst, attempts) {
+  const ans = (inst.answer || '').trim().toLowerCase();
+  const hintText = inst.hint || 'Ponder the true nature of the riddle.';
+  if (!ans) return `Hint: ${hintText}`;
+
+  if (attempts === 1) {
+    return `Hint: ${hintText}`;
+  }
+
+  if (attempts === 2) {
+    // Reveal word length and first letter: e.g. [ S _ _ _ _ _ ]
+    const masked = ans.split('').map((ch, idx) => {
+      if (idx === 0) return ch.toUpperCase();
+      if (ch === ' ') return ' ';
+      return '_';
+    }).join(' ');
+    return `Hint: ${hintText}\nGhostly Whisper: "The word has ${ans.length} letters: [ ${masked} ]"`;
+  }
+
+  // Attempt 3: Reveal first/last letters and vowels
+  const masked = ans.split('').map((ch, idx) => {
+    if (idx === 0 || idx === ans.length - 1 || 'aeiou'.includes(ch)) return ch.toUpperCase();
+    if (ch === ' ') return ' ';
+    return '_';
+  }).join(' ');
+  return `Hint: The ward begins to shudder as your willpower strains its magic.\nGhostly Whisper: "Speak the word: [ ${masked} ]"`;
 }
