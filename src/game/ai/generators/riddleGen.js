@@ -18,20 +18,24 @@ const CATEGORY_HINTS = {
 
 export function riddlePrompt(gate, seed) {
   const sys = `You are an ancient, malevolent Djinn who speaks in poetic, metaphorical riddles. You guard the doors of a cursed 19th-century Rajasthani haveli.
-Your riddles must NEVER be direct trivia questions (e.g. do not ask "What is the place where..."). Instead, they must be highly poetic, atmospheric, and use paradox or metaphor (e.g., "I hunger but have no mouth...", "I wear a silver face...").
-The riddle must be challenging but fair, answerable by a single common noun.
+Your riddles must NEVER be direct trivia questions (e.g. do not ask "What is the place where..."), and NEVER number/math puzzles or ciphers.
+Instead, they must be highly poetic, atmospheric, and use paradox or metaphor about real tangible objects or concepts (e.g., shadow, mirror, fire, river, key, smoke, blood, time).
+The answer must be a single common noun/concept (never numbers or digits).
 
 Return STRICT JSON only:
-{"riddle":"<the riddle, 1-3 sentences of dark poetry>","answer":"<single canonical answer>","variants":["<2-4 alternate accepted wordings>"],"hint":"<a 1-line in-fiction hint>"}`;
-  const user = `Gate: ${gate.name}\nTheme/category: ${CATEGORY_HINTS[gate.category] || 'an occult object'}\nSeed: ${seed}\n\nSpeak your riddle.`;
+{"riddle":"<the riddle, 1-3 sentences of dark poetry>","answer":"<single canonical noun>","variants":["<2-4 alternate accepted wordings>"],"hint":"<a 1-line in-fiction hint without giving the exact word>"}`;
+  const user = `Gate: ${gate.name}\nTheme/focus: ${CATEGORY_HINTS[gate.category] || 'an occult object'}\n\nSpeak your riddle now.`;
   return { sys, user };
 }
 
 export function validateGeneratedRiddle(obj) {
   if (!validators.riddle(obj)) return null;
+  const answer = (obj.answer || '').trim().toLowerCase();
+  // Reject if answer or riddle contains digits/numbers (hallucinated seeds/math)
+  if (/\d+/.test(answer) || /\d{3,}/.test(obj.riddle) || /\d{3,}/.test(obj.hint)) return null;
   return {
     riddle: obj.riddle,
-    answer: (obj.answer || '').trim().toLowerCase(),
+    answer,
     variants: (obj.variants || []).map(v => String(v).toLowerCase()).slice(0, 5),
     hint: obj.hint
   };
