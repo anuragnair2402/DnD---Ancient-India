@@ -52,7 +52,7 @@ export function deepActions(state, cmd, ctx = {}) {
         if (inv.includes('sacred_ash')) return { storyText: 'The pantry cabinet stands open and empty, its urn of Sacred Ash already in your care.', intents: [] };
         return {
           storyText: 'You open the creaking cabinet. Inside a clay urn you find a pouch of SACRED ASH and a flask of Lantern Oil.',
-          intents: [ai('sacred_ash'), { type: 'oil', delta: 40 }],
+          intents: [ai('sacred_ash'), ai('oil_flask'), { type: 'oil', delta: 40 }],
           objective: 'Carry the Sacred Ash to the Fountain Cistern; it will part the Yaksha\u2019s lesser guard for the Gold Key.'
         };
       }
@@ -122,7 +122,7 @@ export function deepActions(state, cmd, ctx = {}) {
     }
 
     case 'smugglers_tunnel': {
-      return { storyText: 'The low tunnel runs east into the dark. Behind you the stone has already slouched shut — there is no going back to the cistern this way.', intents: [], hooks: { tunnelNote: true } };
+      return { storyText: 'The low tunnel runs east into the dark. Behind you the stone has already slouched shut — there is no going back to the cistern this way.', intents: [{ type: 'setFlag', flag: 'tunnel_entered', value: true }], hooks: { tunnelNote: true } };
     }
 
     case 'tamasha_pit': {
@@ -155,6 +155,14 @@ export function deepActions(state, cmd, ctx = {}) {
     }
 
     case 'weeping_garden': {
+      if (/herb|marigold|flower|plant|garden/.test(target) && ['search', 'take', 'get', 'examine'].includes(verb)) {
+        if (inv.includes('herbs')) return { storyText: 'You have already gathered what the garden offers. The jasmine nods, as though agreeing.', intents: [] };
+        return {
+          storyText: 'You gather a bundle of dried herbs from the garden\'s edge — datura, marigold, and something bitter you cannot name. The Rani watches but does not object.',
+          intents: [ai('herbs')],
+          objective: 'Combine herbs with silk cloth to craft an Incense of Calm.'
+        };
+      }
       if (/rattle|earth|ground/.test(target) && ['take', 'get', 'search', 'unearth'].includes(verb)) {
         if (inv.includes('rattle') || state.player.rison.rattle) return { storyText: 'The silver rattle is already gathered. The Rani waits, patient as a held breath, to see what you will do with her son\u2019s voice.', intents: [] };
         return {

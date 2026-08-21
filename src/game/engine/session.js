@@ -9,6 +9,7 @@ import { globalTurnBeat } from '../world/beats.js';
 import { cannedLine } from '../world/entities.js';
 import { genericExamine } from '../world/beats.js';
 import { ROOMS, GATES } from '../world/world.js';
+import { LEGAL_OFFER_IDS } from '../ai/harness/schema.js';
 
 export class GameSession {
   constructor(initialState, hooks = {}) {
@@ -44,6 +45,7 @@ export class GameSession {
     // 1. Riddle answering mode
     if (this.activeRiddle) {
       await this.handleRiddleAnswer(raw);
+      this.evaluateDeath();
       return this.flush();
     }
 
@@ -75,6 +77,9 @@ export class GameSession {
       const res = applyIntents(this.state, r.intents);
       this.state = res.state;
     }
+    
+    this.state.world.doors.visited = this.state.world.doors.visited || {};
+    this.state.world.doors.visited[this.state.world.currentRoom] = true;
 
     this.push('narrative', r.storyText);
 
@@ -98,7 +103,7 @@ export class GameSession {
   }
 
   applyEndOfTurn(r) {
-    this.state.world.turn += 1;
+    this.state = applyIntents(this.state, [{ type: 'turn', delta: 1 }]).state;
     const costs = {
       oil: r.costOil !== false ? 2 : 0,
       sanity: r.costSanity !== false ? this.ambientSanity() : 0
@@ -183,8 +188,7 @@ export class GameSession {
   }
 
   validateOffer(off) {
-    // LLM cannot invent items: given/receive must map to real items or 'sanity'
-    const real = (id) => id === 'sanity' || ['oil_flask','matches','bronze_key','silver_key','gold_key','rattle','herbs','silk_cloth','sacred_ash','incense_of_calm','star_of_mewar','true_name_scroll','ember','stone_of_sight','rope','artisan_key','ward','magnifying_glass','old_journal','iron_crowbar','brass_bell'].includes(id);
+    const real = (id) => id === 'sanity' || LEGAL_OFFER_IDS.has(id);
     return (!off.given || real(off.given)) && (!off.receive || real(off.receive));
   }
 
@@ -223,7 +227,7 @@ export class GameSession {
       const capUsed = (inst.semanticUsed || 0);
       if (sem && sem.correct && capUsed < 2) {
         inst.semanticUsed = capUsed + 1;
-        this.state.player.stats.sanity = Math.max(0, this.state.player.stats.sanity - 5); // strain cost
+        this.state = applyIntents(this.state, [{ type: 'sanity', delta: -5 }]).state; // strain cost
         this.push('narrative', `[RIDDLE ACCEPTED]\nThe ward considers your answer a long moment, and finds it true. (Semantic answer accepted — Sanity -5)\n${gate.successText}`);
         this.unlockAndEnter(gate, key);
         return;
@@ -240,8 +244,8 @@ export class GameSession {
     inst.wrongAttempts = (inst.wrongAttempts || 0) + 1;
     const attempts = inst.wrongAttempts;
 
-    this.state.player.stats.sanity = Math.max(0, this.state.player.stats.sanity - 5);
-    this.state.world.turn += 1;
+    this.state = applyIntents(this.state, [{ type: 'sanity', delta: -5 }]).state;
+    this.applyEndOfTurn({});
     const clue = formatProgressiveClue(inst, attempts);
     this.push('narrative', `[INCORRECT ANSWER]\nThe spectral ward pulses with a harsh, chilling light. A voice whispers: "Wrong, mortal." (Sanity -5)\n\n${clue}\n\n(Answer again, or type any other command to leave the gate be.)`);
   }
@@ -252,7 +256,7 @@ export class GameSession {
     this.state.world.unlockedGates[rev] = true;
     this.activeRiddle = null;
     // enter the room
-    const move = applyIntents(this.state, [{ type: 'move', to: gate.to }, { type: 'turn', delta: 1 }]);
+    const move = applyIntents(this.state, [{ type: 'move', to: gate.to }]);
     this.state = move.state;
     this.state.world.oil = Math.max(0, this.state.world.oil - 2);
     const room = ROOMS[gate.to];

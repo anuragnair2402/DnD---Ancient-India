@@ -100,6 +100,8 @@ export function createDirector(config = {}, opts = {}) {
           return {
             given: 'oil_flask',
             giveName: 'a flask of lamp oil',
+            receive: 'sanity',
+            receiveText: 'a moment of absolute calm (Sanity +15)',
             sanityCost: 15,
             wantedText: 'the calm of a moment not spent in the dark',
             acceptText: `You hand the oil flask into the shimmer. It drinks it dry with a soft, satisfied sound, and for a long, strange moment the screaming of the house is simply... quiet. (Sanity +15)`,

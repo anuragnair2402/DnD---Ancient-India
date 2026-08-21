@@ -46,6 +46,13 @@ export default function App() {
   const focusInput = () => inputRef.current && inputRef.current.focus();
 
   useEffect(() => {
+    if (playMode !== 'playing') return;
+    const handler = (e) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [playMode]);
+
+  useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [log, isGenerating]);
 
@@ -74,16 +81,18 @@ export default function App() {
 
   const saveKey = (k) => { setApiKey(k); localStorage.setItem('gemini_api_key', k); audio.playBleep(660, 0.08); };
 
-  const saveRun = (state, logData, historyData) => {
+  const saveRun = (state, logData, historyData, sessionExtra) => {
     localStorage.setItem('active_run_state', JSON.stringify(state));
     localStorage.setItem('active_run_log', JSON.stringify(logData));
     if (historyData) localStorage.setItem('active_run_history', JSON.stringify(historyData));
+    if (sessionExtra) localStorage.setItem('active_run_session', JSON.stringify(sessionExtra));
   };
 
   const clearRun = () => {
     localStorage.removeItem('active_run_state');
     localStorage.removeItem('active_run_log');
     localStorage.removeItem('active_run_history');
+    localStorage.removeItem('active_run_session');
   };
 
   const hasSavedRun = Boolean(localStorage.getItem('active_run_state') && localStorage.getItem('active_run_log'));
@@ -111,21 +120,29 @@ export default function App() {
     const savedStateStr = localStorage.getItem('active_run_state');
     const savedLogStr = localStorage.getItem('active_run_log');
     const savedHistoryStr = localStorage.getItem('active_run_history');
+    const savedSessionStr = localStorage.getItem('active_run_session');
     if (!savedStateStr || !savedLogStr) return;
     try {
       const savedState = JSON.parse(savedStateStr);
       const savedLog = JSON.parse(savedLogStr);
       const savedHistory = savedHistoryStr ? JSON.parse(savedHistoryStr) : [];
+      const savedSession = savedSessionStr ? JSON.parse(savedSessionStr) : { activeRiddle: null, pendingOffer: null };
       
       const director = makeDirector();
       const session = new GameSession(savedState, director.hooks);
+      if (savedSession.activeRiddle) session.activeRiddle = savedSession.activeRiddle;
+      if (savedSession.pendingOffer) session.pendingOffer = savedSession.pendingOffer;
       sessionRef.current = session;
       setLog(savedLog);
       setCommandHistory(savedHistory);
       setHistoryIndex(-1);
-      setActiveRiddle(null); setPendingOffer(null); setFinale(null); setGameOverCause('');
-      syncView();
+      setActiveRiddle(savedSession.activeRiddle || null); 
+      setPendingOffer(savedSession.pendingOffer || null); 
+      setFinale(null); 
+      setGameOverCause('');
+      
       setPlayMode('playing');
+      syncView();
       setFreezeInput(false);
       audio.playItemAcquired();
     } catch (e) {
@@ -143,7 +160,13 @@ export default function App() {
     if (creatorData.higherResonance) {
       st.world.maxTurns = 50;
       st.world.oil = 70;
+      st.world.maxOil = 100;
       st.world.runSeed = Math.floor(Math.random() * 99997);
+    }
+    if (creatorData.classId === 'Mercenary') {
+      // Mercenary gets +50% oil regardless of mode
+      st.world.oil = Math.round(st.world.oil * 1.5);
+      st.world.maxOil = Math.round(st.world.maxOil * 1.5);
     }
     const director = makeDirector();
     const session = new GameSession(st, director.hooks);
@@ -156,7 +179,7 @@ export default function App() {
     syncView();
     setPlayMode('playing');
     audio.playCreak();
-    saveRun(session.state, introLog);
+    saveRun(session.state, introLog, [], { activeRiddle: null, pendingOffer: null });
   };
 
   const syncView = () => {
@@ -230,7 +253,7 @@ export default function App() {
       setLog(prev => {
         const nextLog = [...prev, playerLine, ...res.story];
         if (res.playMode !== 'victory' && res.playMode !== 'gameover') {
-          saveRun(s.state, nextLog, [...commandHistory, cmd]);
+          saveRun(s.state, nextLog, [...commandHistory, cmd], { activeRiddle: s.activeRiddle, pendingOffer: s.pendingOffer });
         }
         return nextLog;
       });
@@ -453,7 +476,7 @@ function computeEntity(view) {
 function GameOverScreen({ cause, onRestart, turn }) {
   const t = cause === 'midnight'
     ? 'The covenant closes at the final bell. The Djinn steps out of the darkest mirror and takes what was promised by the house\u2019s founding: a soul in balance for the Star.'
-    : 'Your mind fracturs completely, and you join the ghostly chorus in the mirrors of the Sheesh Mahal. The house adds another whispering soul to its halls.';
+    : 'Your mind fractures completely, and you join the ghostly chorus in the mirrors of the Sheesh Mahal. The house adds another whispering soul to its halls.';
   return (
     <div className="api-container">
       <h1 className="creator-title red-glow-text" style={{ fontSize: '30px', marginBottom: '14px' }}>YOU PERISHED</h1>

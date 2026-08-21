@@ -33,7 +33,8 @@ export function createInitialState() {
         mirrorsAngled: 0,
         tunnelCollapsed: false,
         sheeshOpened: false,
-        sanctumReached: false
+        sanctumReached: false,
+        visited: {}
       },
       entityStates: {
         djinn: { mood: 'idle', known: false, bargainsDone: 0 },

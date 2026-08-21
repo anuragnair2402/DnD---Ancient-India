@@ -125,7 +125,19 @@ export function resolveTalk(state, cmd, ctx = {}) {
   const entities = { djinn: /djinn|spirit|fire|demon|star/.test(raw) && /djinn|star/.test(raw), rani: /rani|woman|her|queen|figure/.test(raw), yaksha: /yaksha|guardian/.test(raw), priest: /priest|saffron|mad/.test(raw), thakur: /thakur|ghost|king/.test(raw) };
   let ent = null;
   for (const k of Object.keys(entities)) if (entities[k]) { ent = k; break; }
-  if (!ent) ent = 'djinn'; // default: address the Djinn
+  
+  if (!ent) {
+    // Default to room's resident entity if any
+    const roomDef = ROOMS[state.world.currentRoom];
+    if (roomDef?.entity) ent = roomDef.entity;
+    else if (state.world.currentRoom === 'darbar_hall') ent = 'priest';
+    else if (state.world.currentRoom === 'djinn_sanctum') ent = 'djinn';
+    else ent = null;
+  }
+  
+  if (!ent) {
+    return finalize({ storyText: 'There is no one here who wishes to speak with you.', intents: [] });
+  }
 
   const line = cannedLine(ent, 'idle');
   return finalize({

@@ -4,7 +4,6 @@
 import { ITEMS } from '../world/items.js';
 import { ambience } from './ambience.js';
 
-const INV = (ids) => ids;
 
 // --- generic built-in verbs ------------------------------------------------
 export function genericUse(state, itemId, target, cmd) {

@@ -37,6 +37,13 @@ export function groundActions(state, cmd, ctx = {}) {
 
     case 'zenana_wing': {
       const tok = (verb + ' ' + target + ' ' + (cmd.target2 || '')).toLowerCase();
+      if (/silk|curtain|drape|cloth/.test(t) && ['take', 'get', 'tear', 'pull'].includes(verb)) {
+        if (inv.includes('silk_cloth')) return { storyText: 'You already carry a length of the Zenana\'s silk.', intents: [] };
+        return {
+          storyText: 'You tear a length of Rajasthani silk from the nearest archway. It comes away with a sigh of dust and old perfume. The SILK CLOTH is yours.',
+          intents: [ai('silk_cloth')]
+        };
+      }
       if (/trunk|chest/.test(tok) || (verb === 'use' && /crowbar|glass|bell|magnify/.test(tok))) {
         if (inv.includes('silver_key')) return { storyText: ambience.trunkOpen(), intents: [] };
         if (verb === 'use') {
@@ -73,7 +80,7 @@ export function groundActions(state, cmd, ctx = {}) {
       if (/dais|throne/.test(t)) return { storyText: 'The dais is empty, but the lamplit seat bears a fresh, uncomfortable warmth, as though someone rose from it the moment you entered.', intents: [] };
       if (/mural|painting/.test(t)) return { storyText: 'The murals tell a story of conquest — and at the very edge, a darker panel: a king offering a diamond to a winged shape of fire. The pact, painted in the house\u2019s own bones.', intents: [] };
       if (/priest|figure|man/.test(t)) {
-        return { hooks: { persona: 'priest', mood: 'idle' }, storyText: 'A grey figure in tattered saffron crouches near the wall, muttering. He looks up at you with the terrible clarity of the truly mad.', intents: [] };
+        return { hooks: { persona: 'priest', mood: 'idle' }, storyText: 'A grey figure in tattered saffron crouches near the wall, muttering. He looks up at you with the terrible clarity of the truly mad.', intents: [{ type: 'setFlag', flag: 'priest_lectured', value: true }] };
       }
       break;
     }
@@ -97,7 +104,7 @@ export function groundActions(state, cmd, ctx = {}) {
           objective: 'Use the Artisan\u2019s Key on the grate in the Fountain Cistern to reach the Tamasha Pit.'
         };
       }
-      if (/rack|rope|coil|bench/.test(t) && !inv.includes('rope')) {
+      if (/rack|rope|coil/.test(t) && !inv.includes('rope')) {
         return { storyText: 'Coiled against the weapons rack, almost hidden, you find a ROPE — sound enough to trust with the height of the Observatory well.', intents: [ai('rope')], objective: 'Take the rope to the Observatory to climb to the Rooftop.' };
       }
       if (/talwar|sword|blade/.test(t)) return { storyText: 'You touch a rusted talwar. A spectral clash of battle screams through your thoughts. (Sanity -5)', intents: [si(-5)] };

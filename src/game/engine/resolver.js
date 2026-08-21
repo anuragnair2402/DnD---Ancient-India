@@ -41,7 +41,14 @@ export function resolveCommand(state, raw, ctx = {}) {
     const missing = [];
     if (!p.keys.bronze) missing.push('Bronze'); if (!p.keys.silver) missing.push('Silver'); if (!p.keys.gold) missing.push('Gold');
     const noStar = !p.inventory.includes('star_of_mewar');
-    const why = noStar ? ', and you do not carry the Star' : `; you still lack: ${missing.join(', ')}`;
+    let why = '';
+    if (missing.length > 0 && noStar) {
+      why = `; you still lack: ${missing.join(', ')} Key(s), and you do not carry the Star`;
+    } else if (missing.length > 0) {
+      why = `; you still lack: ${missing.join(', ')} Key(s)`;
+    } else if (noStar) {
+      why = '; you do not carry the Star of Mewar';
+    }
     return { ...emptyResult(), storyText: `The gate will not open for you yet${why}. There is another, deeper way out of this house — but it is harder than the door.`, intents: [], tookTurn: false };
   }
 
@@ -58,7 +65,6 @@ export function resolveCommand(state, raw, ctx = {}) {
 
   switch (cmd.kind) {
     case COMMAND.MOVEMENT: return moveCommand(state, cmd.dir);
-    case COMMAND.RIDDLE_ANSWER: break;
     case COMMAND.SYSTEM: return systemCommand(state, cmd);
     case COMMAND.INVENTORY: return systemCommand(state, cmd);
     case COMMAND.SANITY_ACTION: return withTurn(resolveSanity(state, cmd, ctx));
@@ -92,6 +98,9 @@ function moveCommand(state, dir) {
   const target = room.exits[dir] || room.exits[longDir(dir)];
   if (!target) {
     return { ...emptyResult(), storyText: `You cannot go ${dir} from here.`, intents: [], tookTurn: false };
+  }
+  if (target === 'smugglers_tunnel' && state.player.flags.tunnel_entered) {
+    return { ...emptyResult(), storyText: 'The tunnel entrance is buried under tons of fallen stone. There is no going back that way.', intents: [], tookTurn: false };
   }
   const from = state.world.currentRoom;
   const gate = GATES[`${from}->${target}`];
@@ -133,6 +142,7 @@ function moveCommand(state, dir) {
     if (!state.world.unlockedGates['mardana_wing->sheesh_mahal']) {
       return requireRiddle(state, from, target, GATES['mardana_wing->sheesh_mahal']);
     }
+    return doEnter(state, from, target, { intents: [{ type: 'spendKey', key: 'bronze' }, { type: 'spendKey', key: 'silver' }, { type: 'spendKey', key: 'gold' }] });
   }
 
   return doEnter(state, from, target, {});
@@ -168,12 +178,15 @@ function ensureRiddleInstance(state, from, to, gate) {
 
 function doEnter(state, from, target, opts = {}) {
   const room = ROOMS[target];
-  const extra = [];
+  const extra = [...(opts.intents || [])];
   let story = `You pass through into ${room.name}.\n\n${room.description}`;
   if (opts.veil) {
     const cost = 4; // a fixed, modest tax for using the Sight (readable, not lethal)
     extra.push({ type: 'sanity', delta: -cost });
     story = `[THE SIGHT PARTS]\n${story}\n\n(Passing through the veil costs you ${cost} sanity.)\n${sanityVignette(sanityTierOf(state.player.stats.sanity))}`;
+  }
+  if (target === 'sheesh_mahal' && extra.some(i => i.type === 'spendKey')) {
+    story = `The three keys — Bronze, Silver, Gold — burn away in the locks as the Mahogany Gate swings wide.\n\n${story}`;
   }
   return {
     ...emptyResult(),
@@ -214,7 +227,9 @@ function systemCommand(state, cmd) {
     case 'restart':
       return { ...emptyResult(), storyText: '', intents: [], tookTurn: false, flashRestart: true };
     default:
-      return { ...emptyResult(), storyText: roomFallback(state), intents: [], tookTurn: false };
+      const fb = roomFallback(state);
+      const text = (a === 'unknown' && cmd.input) ? `Unrecognized input "${cmd.input}".\n\n${fb}` : fb;
+      return { ...emptyResult(), storyText: text, intents: [], tookTurn: false };
   }
 }
 
