@@ -343,7 +343,14 @@ export default function App() {
               <div className="sidebar-column">
                 <SanityGauge sanity={view?.player?.sanity} />
                 <div className="map-panel" style={{ flex: 1 }} >
-                  <div className="panel-title"><span>Floor Plan</span><span style={{ fontSize: '9px', color: 'var(--terminal-dim)' }}>🟢open 🔴ward</span></div>
+                  <div className="panel-title">
+                    <span>Floor Plan</span>
+                    <span style={{ fontSize: '9px', color: 'var(--terminal-dim)', letterSpacing: '0.5px' }}>
+                      <span style={{ color: '#f59e0b' }}>— open</span>&nbsp;&nbsp;
+                      <span style={{ color: '#d97706' }}>┄ locked</span>&nbsp;&nbsp;
+                      <span style={{ color: '#a78bfa' }}>✦ sight</span>
+                    </span>
+                  </div>
                   <div className="map-canvas-container">
                     <MansionMap currentRoom={view?.room} unlockedGates={view?.unlockedGates} sanity={view?.player?.sanity} doors={view?.doors} />
                   </div>

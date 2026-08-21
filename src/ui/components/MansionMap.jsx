@@ -109,7 +109,7 @@ function Connector({ rooms, unlockedGates }) {
   
   const isVeil = (ROOMS[a]?.veil || layerOf(a) === 'veil') || (ROOMS[b]?.veil || layerOf(b) === 'veil');
   const open = gateKey ? !!unlockedGates[gateKey] : true;
-  const color = open ? (isVeil ? '#8b5cf6' : '#2a8f6d') : '#b33a2a';
+  const color = open ? (isVeil ? '#a78bfa' : '#f59e0b') : '#92400e';
   const dash = open ? (isVeil ? '4 2' : 'none') : '3 3';
   
   const dx = bx - ax;
@@ -137,8 +137,13 @@ function Connector({ rooms, unlockedGates }) {
     y2 = by - Math.sin(angle) * 14;
   }
 
-  const c = <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={1.4} strokeDasharray={dash} />;
-  const dot = !open ? <circle cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} r={3} fill={color} /> : null;
+  const c = <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={open ? 1.5 : 1.2} strokeDasharray={dash} opacity={open ? 0.9 : 0.75} />;
+  const dot = !open ? (
+    <g>
+      <circle cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} r={3.5} fill="#0d0a06" stroke="#f59e0b" strokeWidth={1} />
+      <circle cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} r={1.2} fill="#f59e0b" />
+    </g>
+  ) : null;
   return <g>{c}{dot}</g>;
 }
 
